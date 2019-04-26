@@ -1,0 +1,246 @@
+[PROJECT]
+LA=F000
+DIVLEN=80
+INLCOL=75
+[ENTRYPT]
+[SYMBOLS]
+0013,ZP_13,Zero Page $13
+0014,ZP_14,Zero Page $14
+0079,ZP_79,Zero Page $79
+007A,ZP_7A,Zero Page $7A
+007B,ZP_7B,Zero Page $7B
+007C,ZP_7C,Zero Page $7C
+0087,ZP_87,Zero Page $87
+0088,ZP_88,Zero Page $88
+00C4,ZP_C4,Zero Page $C4
+00C5,ZP_C5,Zero Page $C5
+00D6,ZP_D6,Zero Page $D6
+00DE,ZP_DE,Zero Page $DE
+00DF,ZP_DF,Zero Page $DF
+00E0,ZP_E0,Zero Page $E0
+00E1,ZP_E1,Zero Page $E1
+00E2,ZP_E2,Zero Page $E2
+00E3,ZP_E3,Zero Page $E3
+00E4,ZP_E4,Zero Page $E4
+00E5,ZP_E5,Zero Page $E5
+00E9,ZP_E9,Zero Page $E9
+00EA,ZP_EA,Zero Page $EA
+00EC,ZP_EC,Zero Page $EC
+00EF,ZP_EF,Zero Page $EF
+00F3,ZP_F3,Zero Page $F3
+00F4,ZP_F4,Zero Page $F4
+00F6,ZP_F6,Zero Page $F6
+00F7,ZP_F7,Zero Page $F7
+00F8,ZP_F8,Zero Page $F8
+00F9,ZP_F9,Zero Page $F9
+00FA,ZP_FA,Zero Page $FA
+00FB,ZP_FB,Zero Page $FB
+00FC,ZP_FC,Zero Page $FC
+00FD,ZP_FD,Zero Page $FD
+00FE,ZP_FE,Zero Page $FE
+00FF,ZP_FF,Zero Page $FF
+0100,STACK,Stack
+0101,STACK+1,Stack offset 1
+0105,STACK+5,Stack offset 5
+0200,CURPSL,Cursor Position LO byte
+0201,CURCHR,Character under cursor
+0202,TEMCHR,Temporary character store
+0203,LDFLAG,Load Flag
+0204,ERRORFL,FF = Run error
+0205,SCRSPD,Scroll delay
+0206,MEM0206,Low Mem $0206
+0212,CCFLAG,Control-C Flag
+0213,MEM0213,Low Mem $0213
+0214,MEM0214,Low Mem $0214
+0215,MEM0215,Low Mem $0215 (Last keypress?)
+0216,MEM0216,Low Mem $0216
+0218,INVEC,Input Vector
+021A,OUTVEC,Output Vector
+021C,CCVEC,Control-C Vector
+021E,LDVEC,Load Vector
+0220,SAVVEC,Save Vector
+0222,MOVFLAG,Move Flag for insert Routine
+0223,INSFLAG,Insert Flag
+0224,SKBFLAG,FF next character returns BASIC command
+0225,CURPSH,Cursor Position HI byte
+0226,QUOFLAG,Quotes Flag
+0227,EDFLAG,Edit Flag. Get a line from the screen
+0228,CREGGLAG,Copy of Control Register contents
+0229,USERVEC,User Vector
+022C,CURSYM,Cursor Symbol
+022D,CURFL,Cursor Flash Rate/suppress
+022E,NMIVEC,NMI Vector
+0231,UIRQVEC,User IRQ Vector
+0234,NAM1,Filename to search for or to write
+023A,NAM2,Filename that was found
+0240,MEM0240,Low Mem $0240
+0241,REGMAP,Register map
+0242,MEM0242,Low Mem $0242
+0243,MEM0243,Low Mem $0243
+0244,MEM0244,Low Mem $0244
+0245,MEM0245,Low Mem $0245
+0246,MEM0246,Low Mem $0246
+0248,EXTVEC,BASIC command external Vector
+024B,DISK,Disk bootstrap Vector
+024E,PRFLAG,Print on/off Flag
+024F,TPFlag,Tape on/off Flag
+8800,PARPORT,Parallel Port $8800
+8801,PARPORT1,Parallel Port $8801
+8802,PARPORT2,Parallel Port $8802
+8803,PARPORT3,Parallel Port $8803
+D000,VIDRAM,Video Character RAM
+D100,VIDRAM+256,Video Character RAM page 2
+D200,VIDRAM+512,Video Character RAM page 3
+D300,VIDRAM+768,Video Character RAM page 4
+D800,CTRLPORT,Control Port (Bits:0=24/48,1=Colour,4=DAC Enable)
+DF00,KEYBOARD,Keyboard Port
+E000,ACIA2,Relocated ACIA
+E001,ACIA2+1,Relocated ACIA offset 1
+F000,ACIA (superboard)
+FC00,ACIA,ACIA on 5xx boards
+[TABLES]
+F778,F781,H,unknown
+F78E,F7A9,S,Power-on Prompt
+F7AA,F7B2,S,Tape 'found '
+F7B3,F7BC,S,Tape 'Loading' message
+F7BD,F7C6,S,Tape 'Saving' message
+F7C7,F7CB,S,List message
+F9A8,F9D4,S,MCM header
+FCD3,FCD4,H,unknown
+FD87,FDFF,H,filler
+FE8D,FEBD,S,Keyboard Matrix
+FEBE,FEEE,H,unknown
+FF49,FF50,H,unknown
+FF5C,FF68,H,Filler
+FFB9,FFB9,H,Unkown
+FFD1,FFDE,H,unknown
+FFDF,FFEA,H,Filler
+FFFA,FFFB,W,NMI Vector
+FFFC,FFFD,W,Reset Vector
+FFFE,FFFF,W,IRQ Vector
+[LABELS]
+A084,BASICTBLE1,BASIC Table 1
+A274,BASICWARM,BASIC Warm start entry Point $A274
+A359,BASICA359,BASIC Entry Point $A359
+A374,BASICA374,BASIC Entry Point $A374
+A636,BASICA636,BASIC Entry Point $A636
+A866,BASICA866,BASIC Entry Point $A866
+AFC1,BASICAFC1,BASIC Entry Point $AFC1
+B96E,BASICB96E,BASIC Entry Point $B96E
+BCF7,BASICBCF7,BASIC Entry Point $BCF7
+BD11,BASICCOLD,BASIC Cold Start Entry Point $BD11
+F000,RESET,Reset all vectors and flags to default.
+F041,VECLD
+F05D,RECALL
+F062,MENULOOP
+F094,ACIAINIT
+F0A2,CLS
+F0A9,CLSLOOP
+F0B8,HOCUR
+F0C6,SETCUR
+F0D3,WRITESCRN
+F0ED,WRITE
+F0F4,CR
+F171,LNFD
+F19A,VTAB
+F1D5,BELL
+F1EF,PUT1
+F20C,EOP
+F21A,EOL
+F222,NEWLN
+F229,PUTCUR
+F23F,SOP
+F24A,SOL,Move cursor to Start of Line
+F250,OLDLN
+F25C,START
+F265,SCROLL
+F280,SCR1
+F2B0,SCRDN
+F369,KBRD
+F36D,KEYLOOP
+F4A7,EXTEND
+F4B2,TABLE1,Unknown Table#1
+F4D2,PRERRL
+F501,TQUOTE
+F550,OPEN
+F56B,GETST
+F5E7,INSERT
+F6AB,DELETE
+F70D,DELAY
+F716,INVWR
+F71E,RDCOL
+F727,RDCOLA
+F72D,TSW
+F746,FINTAPE
+F75F,TAPOUT
+F766,TAP1
+F778,TABLE5,Unknown Table
+F782,MSGOUT
+F78E,BANNER,Power On Menu Banner
+F7CC,HEXCHECK
+F7E5,MONPRINT
+F7F6,NXTDIG
+F804,CRLF
+F80E,SPC2
+F813,SPC1
+F818,HEXIT
+F825,ROTCHR
+F834,MINPUT
+F83E,FCHAR
+F849,MONBRK
+F969,PUTREG
+F9A8,TABLE3,Unknown Table
+F9CD,TABLE4,Unknown Table
+F9D5,GETPAR
+FB7B,DELAY5S
+FC28,COMPNAME
+FC3F,GETNAM1
+FC73,PUTNAM
+FC96,GETNAM
+FD42,ADJPTR
+FE8D,KEYMATRIX,Keyboard Matrix
+FEBE,TABLE7,Unknown Table
+FEEF,PRINTINIT
+FF04,PRINTOUT
+[COMMENTS]
+F000,=,Cold Start Entry Point
+F062,=,Power ON Menu
+F067,i,Is it "M"? (Monitor)
+F075,i,Is it "C"?  (Cold Start ROM BASIC)
+F07C,i,Is it "W"? (Warm Start)
+F083,i,Is it "D"? (Disk Boot)
+F08A,i,Is it "U"? (User Vector)
+F094,=,Initialize ACIA
+F0A2,=,Clear Screen
+F0A2,=,CLEARSCREEN
+F0A2,i,SPACE character (alternate)
+F0B8,=,Home the Cursor
+F0D3,=,Write character to screen
+F0E7,=,Restore character under cursor
+F0F0,i,Is it <CR>?
+F0F4,=,Perform <CR>
+F124,i,Is is <QUOTE>?
+F12B,i,Is it <SPACE>?
+F12F,i,Is is <?>?
+F171,=,Perform Line Feed
+F21A,=,Move to End of Line
+F229,=,Put Cursor On screen
+F265,=,Scroll
+F2B0,=,Screen Down
+F369,=,Keyboard Scanner
+F3B0,i,Convert keyboard matrix position to ASCII code
+F4A7,=,Extend
+F4D2,=,Print Error Line
+F501,=,Toggle Quote Mode
+F50C,i,<NE Arrow> symbol Cursor
+F510,i,Reverse <SPACE> Cursor
+F716,=,Invert Keyboard Data and Write to Keyboard Port
+F71E,=,Read Keyboard COLUMN
+F727,=,Read Keyboard Port and Invert Data
+F782,=,Show Power On Banner
+F7AA,=,Messages
+F7CC,=,Check for valid HEX digit
+F849,=,NMI Entry Point
+F855,=,Monitor Entry Point
+FE00,=,Polled Keyboard Entry Point
+FFFA,=,6502 CPU Vectors
