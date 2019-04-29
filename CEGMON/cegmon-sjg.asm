@@ -29,17 +29,24 @@
 
 
 ;=================================================================
-; CONFIGURE MACHINE TYPE
+; CONFIGURE MACHINE AND DISPLAY TYPE
 ;=================================================================
-; MACHINE  NAME      NMI   IRQ   WIDTH	SIZE  START  COLS  ROWS
-; 0        C1P/SBII  $130  $1C0  32     0     69     24    26
-; 1        UK101     $130  $1C0	 64     0     140    48    14
-; 2        C2/C4     $130  $1C0  64     1     128    64    28
+; MACHINE  NAME      NMI   IRQ   
+; 0        C1P/SBII  $130  $1C0
+; 1        UK101     $130  $1C0
+; 2        C2/C4     $130  $1C0
 ;-----------------------------------------------------------------
+; DISPLAY  DESCRIPTION  WIDTH  SIZE  START  COLS  ROWS NOTES
+; 0        Std  24x24   32     0     133    24    24   C1/SB 
+; 1	   Std  48x14   64     0     140    48    14   C1-II/600 RevD/UK101
+; 2        Std  64x28   64     1     128    64    28   C2/C4
+; 3        Tall 24x26   32     0     69     24    26   C1/SB
+; 4        Full 32x28   32     0     64     32    28   Modified C1/SB
+;-----------------------------------------------------------------   
 ; Specify which machine you want to create a binary for:
 
-MACHINE=0
-
+MACHINE = 0	; Determines Machine hardware config
+DISPLAY = 3	; Determines Video Display Parameters
 
 ;=================================================================
 ; Symbols for ROM and IO space
@@ -71,39 +78,60 @@ LBF22	= BASIC + $1F22		; INIT ACIA (C2/C4)
 
 
 ;=================================================================
-; CONSTANTS
+; DISPLAY PARAMETERS
 ;=================================================================
 
-;------ MACHINE 0 - C1P/SB-II
+;------ DISPLAY 0 - C1/SB
 
-!IF MACHINE=0 {
+!IF DISPLAY=0 {
 WIDTH	= 32			; SCREEN WIDTH
 SIZE	=  0			; SCREEN SIZE 0=1K 1=2K
-START	= 69			; SET SCREEN OFFSET
+START	= 133			; SET SCREEN OFFSET  (Row 2, Col 5)
 COLS	= 24			; SET COLUMNS TO DISPLAY
-ROWS	= 26			; SET ROWS TO DISPLAY
+ROWS	= 24			; SET ROWS TO DISPLAY
 }
 
-;------ MACHINE 1 - UK101
-!IF MACHINE=1 {
+;------ DISPLAY  1
+
+!IF DISPLAY=1 {
 WIDTH	=  64			; SCREEN WIDTH
 SIZE	=   0			; SCREEN SIZE 0=1K 1=2K
-START	= 140			; SET SCREEN OFFSET
+START	= 140			; SET SCREEN OFFSET  (Row 2, Col 12)
 COLS	=  48			; SET COLUMNS TO DISPLAY
 ROWS	=  14			; SET ROWS TO DISPLAY
 }
 
-;------ MACHINE 2 - C2/C4
+;------ DISPLAY 2
 
-!IF MACHINE=2 {
+!IF DISPLAY=2 {
 WIDTH	=  64			; SCREEN WIDTH
 SIZE	=   1			; SCREEN SIZE 0=1K 1=2K
-START	= 128			; SET SCREEN OFFSET
+START	= 128			; SET SCREEN OFFSET (Row 2, Col 0)
 COLS	=  64			; SET COLUMNS TO DISPLAY
 ROWS	=  28			; SET ROWS TO DISPLAY
 }
 
-;------ Calculate screen parameters based on MACHINE type
+;------ DISPLAY 3
+
+!IF DISPLAY=3 {
+WIDTH	= 32			; SCREEN WIDTH
+SIZE	=  0			; SCREEN SIZE 0=1K 1=2K
+START	= 69			; SET SCREEN OFFSET  (Row 2, Col 5)
+COLS	= 24			; SET COLUMNS TO DISPLAY
+ROWS	= 26			; SET ROWS TO DISPLAY
+}
+
+;------ DISPLAY 4
+
+!IF DISPLAY=4 {
+WIDTH	= 32			; SCREEN WIDTH
+SIZE	=  0			; SCREEN SIZE 0=1K 1=2K
+START	= 64			; SET SCREEN OFFSET  (Row 2, Col 0)
+COLS	= 32			; SET COLUMNS TO DISPLAY
+ROWS	= 28			; SET ROWS TO DISPLAY
+}
+
+;------ Calculate screen parameters based on DISPLAY setting
 
 LWIDTH	= COLS-1		; Logical line width -1
 TOP	= SCREEN+START		; "HOME" position
