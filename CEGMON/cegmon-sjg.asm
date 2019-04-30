@@ -65,7 +65,7 @@
 ; Edit the following for your desired feature/options:
 
 MACHINE = 0	; 0 to 2      - Determines Machine hardware config
-DISPLAY = 3	; 0 to 4      - Determines Video Display Parameters
+DISPLAY = 0	; 0 to 4      - Determines Video Display Parameters
 EMACS   = 0	; 0=No, 1=Yes - Enable EMACS-like Editing keys
 
 
@@ -518,7 +518,7 @@ MSTART	JSR	CTRLF
 
 ;------ '.' (COMMAND/ADDRESS MODE)
 
-LF988	JSR	CHKLOAD2
+COMMAND	JSR	CHKLOAD2
 	CMP	#'M'
 	BEQ	LF933
 	CMP	#'R'
@@ -556,7 +556,7 @@ GETPRC	LDX	#3
 GETPRC2	JSR	GETPRC3
 	JSR	CHKLOAD2
 GETPRC3	CMP	#'.'
-	BEQ	LF988
+	BEQ	COMMAND
 	CMP	#'/'
 	BEQ	LF9E8
 	JSR	ASCHEX
@@ -864,24 +864,24 @@ CTRLC	LDA	CCFLAG
 ;=================================================================
 
 SETUPTBL
-	!WORD	INPUT	; 218 INPUT
-	!WORD	OUTPUT	; 21A OUTPUT
-	!WORD	CTRLC	; 21C CTRL-C
-	!WORD	LOADIT	; 21E LOAD
-	!WORD	SAVEIT	; 220 SAVE
-	!BYTE	LWIDTH	; 222
-	!WORD	TOP	; 223
-	!WORD	BASE	; 225
+	!WORD	INPUT	; 218 [$FBB2] INPUT
+	!WORD	OUTPUT	; 21A [$FBB4] OUTPUT
+	!WORD	CTRLC	; 21C [$FBB6] CTRL-C
+	!WORD	LOADIT	; 21E [$FBB8] LOAD
+	!WORD	SAVEIT	; 220 [$FBBA] SAVE
+	!BYTE	LWIDTH	; 222 [$FBBC] 
+	!WORD	TOP	; 223 [$FBBD] 
+	!WORD	BASE	; 225 [$FBC0] 
 
-	LDA	TOP,X	; 227  <-- Start of a small subroutine
-	STA	TOP,X	; 22A  copied to low memory and executed
-	DEX		; 22D  there.
-	RTS		; 22E  <-- END
+	LDA	TOP,X	; 227 [$FBC2]  <-- Start of a small subroutine
+	STA	TOP,X	; 22A [$FBC5]  copied to low memory and executed
+	DEX		; 22D [$FBC8]  there.
+	RTS		; 22E [$FBC9]  <-- END
 
-	!BYTE	$00	; 22F
-	!BYTE	$20	; 230
-	!WORD	TOP	; 231
-	!WORD	LF988	; 233
+	!BYTE	$00	; 22F [$FBCA] 
+	!BYTE	$20	; 230 [$FBCB] 
+	!WORD	TOP	; 231 [$FBCC] 
+	!WORD	COMMAND	; 233 [$FBCE] 
 
 ;=================================================================
 ; [$FBCF] Check if top or base of screen overshot
@@ -1602,7 +1602,7 @@ OLDSCR	JSR	BROMCRTC
 OUTPUT	JSR	NSCREEN
 OUTPUT2	PHA
 	LDA	SVFLAG			; ARE WE SAVING?
-	BEQ	LFFBB			; SAVE FLAG CLR
+	BEQ	PULLA			; SAVE FLAG CLR
 	PLA
 	JSR	ACIAOUT			; CHAR TO ACIA
 	CMP	#$D			; IS IT CARRIAGE RETURN?
@@ -1616,14 +1616,16 @@ OUTPUT2	PHA
 TENULL	PHA
 	TXA
 	PHA
-	LDX	#$A
-	LDA	#0
-LFFB3	JSR	ACIAOUT-OFFSET
-	DEX
-	BNE	LFFB3
-	PLA
+	LDX	#$A			; Count to 10
+	LDA	#0			; NULL
+
+TENLOOP	JSR	ACIAOUT-OFFSET		; Output it
+	DEX				
+	BNE	TENLOOP			; Loop back up if not done
+
+	PLA				; Pull X from stack
 	TAX
-LFFBB	PLA
+PULLA	PLA				; Pull A from stack
 LFFBC	RTS
 
 
@@ -1667,7 +1669,7 @@ LFFE2	!BYTE	SIZE			; SCREEN SIZE (0=1K 1=2K)
 ;=================================================================
 
 PERIOD	LDA	#'.'
-	JSR	JUMPOUT				; Print It
+	JSR	JUMPOUT			; Print It
 	JMP	QDDATD
 
 ;=================================================================
@@ -1684,6 +1686,6 @@ JUMPSV	JMP	(SVVEC)			; SAVE   FE7B
 ; [$FFFA] 6502 RESET, IRQ, and NMI Vectors
 ;=================================================================
 
-!WORD	NMI			; NMI   (normally not used)
-!WORD	RESET			; RESET
-!WORD	IRQ			; IRQ   (normally not used)
+!WORD	NMI				; NMI   (normally not used)
+!WORD	RESET				; RESET
+!WORD	IRQ				; IRQ   (normally not used)
