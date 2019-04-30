@@ -4,7 +4,7 @@
 
 ; BASED ON BINARY IMAGE FILE: "CEGMONC1.ROM"
 ;
-; This disassembly started by unknown author.
+; This disassembly started by unknown author ("Dave"?).
 ; Found on OSIWEB.ORG site.
 ; Adapted, Commented, and Enhanced by Steve J. Gray, Apr 25, 2019
 ; Formatted for ACME assembler.
@@ -20,12 +20,13 @@
 ; CHR$(26) - Clear Entire Screen (CTRL-Z)
 ; CHR$(30) - Clear Window (CTRL-SHIFT-N)
 ; -----
-; CTRL-E - Toggle Editor
-; CTRL-A - Edit Cursor LEFT
-; CTRL-S - Edit Cursor UP
-; CTRL-D - Edit Cursor RIGHT
-; CTRL-F - Edit Cursor DOWN
-; ESC    - Copy character at edit cursor (CTRL-Q on UK-101)
+; NORMAL EMACS
+; CTRL-E CTRL-E - Toggle Editor
+; CTRL-A CTRL-B - Edit Cursor LEFT (back)
+; CTRL-S CTRL-P - Edit Cursor UP (previous line)
+; CTRL-D CTRL-F - Edit Cursor RIGHT (forward)
+; CTRL-F CTRL-N - Edit Cursor DOWN (next line)
+; ESC    CTRL-Y - Copy character at edit cursor (CTRL-Q on UK-101) (yank)
 
 
 ;=================================================================
@@ -43,10 +44,12 @@
 ; 3        Tall 24x26   32     0     69     24    26   C1/SB
 ; 4        Full 32x28   32     0     64     32    28   Modified C1/SB
 ;-----------------------------------------------------------------   
-; Specify which machine you want to create a binary for:
+; Edit the following for your desired feature/options:
 
-MACHINE = 0	; Determines Machine hardware config
-DISPLAY = 3	; Determines Video Display Parameters
+MACHINE = 0	; 0 to 2      - Determines Machine hardware config
+DISPLAY = 3	; 0 to 4      - Determines Video Display Parameters
+EMACS   = 0     ; 0=No, 1=Yes - Enable EMACS-like Editing keys
+
 
 ;=================================================================
 ; Symbols for ROM and IO space
@@ -66,6 +69,9 @@ MONITOR = $F800   		; MONITOR ROM
 ;=================================================================
 ; BASIC ROM ROUTINES
 ;=================================================================
+; ROM BASIC provides ACIA I/O for the C2/4, which has the ACIA at
+; $FC00.  The C1 must reproduce these in the monitor for the ACIA
+; at $F000.
 
 LA34B	= BASIC + $034B		; UK101 BASIC RUBOUT KEY RETURN
 LA374	= BASIC + $0374		; UK101 BASIC RUBOUT KEY RETURN
@@ -91,7 +97,7 @@ COLS	= 24			; SET COLUMNS TO DISPLAY
 ROWS	= 24			; SET ROWS TO DISPLAY
 }
 
-;------ DISPLAY  1
+;------ DISPLAY 1
 
 !IF DISPLAY=1 {
 WIDTH	=  64			; SCREEN WIDTH
@@ -222,13 +228,20 @@ USERHI  = USERLO+1		; Hi byte of Monitor U command jump vector
 ; Set Output File
 ;=================================================================
 
-!TO "CEGMON.BIN",plain
+!TO "CEGMON-SJG.BIN",plain
 
 
 ;=================================================================
 ; ROM RE-MAPPING OPTION
 ;=================================================================
-; Not implemented yet!!!!!!
+; NOTE: The original text indicated that the FCXX segment should be
+; relocated to $F700 for C2/4.  To simplify the address circuitry, the
+; ROM is wired to $F000-$FFFF, with A11 ignored, and the chip disabled
+; when $FC00 (ACIA) is enabled.  This scheme maps the $FCXX segment to
+; $F400 in hardware, so the offset is calculated as $FCXX-$F4XX.  If
+; you follow the original CEGMON wiring instructions (I don't have
+; these), then change the offest back to $FC00-$F700.
+;
 
 !IF MACHINE=0 { OFFSET = $0 }		; no offset needed for C1/Superboard
 !IF MACHINE=1 { OFFSET = $0 }		; no offset needed for UK-101
@@ -287,7 +300,7 @@ NSCREEN	STA	NEWCHR
 
 LF846	LDY	SDELAY			; SCREEN DELAY
 	BEQ	LF84E
-	JSR	LFCE1
+	JSR	LFCE1-OFFSET
 
 LF84E	CMP	#$5F			; RUBOUT character
 	BEQ	RUBOUT
@@ -642,7 +655,7 @@ LFA94	JSR	BUMP
 
 LFA97	JSR	LFEF0
 	LDA	#$D
-	JSR	ACIAOUT
+	JSR	ACIAOUT-OFFSET
 	JSR	NOTEND
 	BCC	LFA94
 	LDA	$E4
@@ -683,11 +696,12 @@ EDLOOP	LDY	TEMP22F
 
 CHKEDIT	LDA	SCRTCH
 
+!IF EMACS=0 {
 !IF MACHINE=0 {	CMP #$1B }			; ESC    (copy)?
 !IF MACHINE=1 {	CMP #$11 }			; CTRL-Q (copy)?
 !IF MACHINE=2 {	CMP #$1B }			; ESC    (copy)?
-
 	BEQ	LFB13
+
 	CMP	#1				; CTRL-A (left)?
 	BEQ	LFB0D
 	CMP	#4				; CTRL-D (right)?
@@ -696,7 +710,18 @@ CHKEDIT	LDA	SCRTCH
 	BEQ	LFB01
 	CMP	#6				; CTRL-F (down)?
 	BNE	LFB22
-
+} ELSE {
+	CMP	#$19				; CTRL-Y (yank)
+	BEQ	LFB13
+	CMP	#2				; CTRL-B (backwards)?
+	BEQ	LFB0D
+	CMP	#6				; CTRL-F (forwards)?
+	BEQ	LFB07
+	CMP	#$10				; CTRL-P (up)?
+	BEQ	LFB01
+	CMP	#E				; CTRL-N (next line)?
+	BNE	LFB22
+}
 ;------ CTRL-F (cursor down)
 
 	JSR	LFB7C
@@ -883,10 +908,11 @@ CTRLF	LDA	#$D
 ;=================================================================
 ; **** This entry point must not move!
 
-BOOTSTRP JSR	LFC0C
+BOOTSTRP
+	JSR	LFC0C-OFFSET
 	JMP	($FD)
 
-	JSR	LFC0C
+	JSR	LFC0C-OFFSET
 	JMP	NEWMON
 
 LFC0C	LDY	#0
@@ -907,18 +933,18 @@ LFC2A	LDA	#2
 	BEQ	LFC4D
 	LDA	#$FF
 LFC33	STA	DISK+2
-	JSR	LFCA5
+	JSR	LFCA5-OFFSET
 	AND	#$F7
 	STA	DISK+2
-	JSR	LFCA5
+	JSR	LFCA5-OFFSET
 	ORA	#8
 	STA	DISK+2
 	LDX	#$18
-	JSR	LFC91
+	JSR	LFC91-OFFSET
 	BEQ	LFC2A
 LFC4D	LDX	#$7F
 	STX	DISK+2
-	JSR	LFC91
+	JSR	LFC91-OFFSET
 LFC55	LDA	DISK
 	BMI	LFC55
 LFC5A	LDA	DISK
@@ -927,15 +953,15 @@ LFC5A	LDA	DISK
 	STA	DISK+$10
 	LDA	#$58
 	STA	DISK+$10
-	JSR	DISKIN
+	JSR	DISKIN-OFFSET
 	STA	$FE
 	TAX
-	JSR	DISKIN
+	JSR	DISKIN-OFFSET
 	STA	$FD
-	JSR	DISKIN
+	JSR	DISKIN-OFFSET
 	STA	$FF
 	LDY	#0
-LFC7B	JSR	DISKIN
+LFC7B	JSR	DISKIN-OFFSET
 	STA	($FD),Y
 	INY
 	BNE	LFC7B
@@ -1002,7 +1028,7 @@ KEYWRT	EOR	#$FF
 ;COL (X) 1=C0, 2=C1, 4=C2, 0=NONE
 
 KEY2XR	PHA
-	JSR	KYREAD
+	JSR	KYREAD-OFFSET
 	TAX
 	PLA
 	DEX
@@ -1050,7 +1076,9 @@ BANNER	!TEXT "CEGMON(C)1980 D/C/W/M?"
 ;=================================================================
 ; POLLED KEYBOARD INPUT ROUTINE
 ;=================================================================
+; This routine must start at $FD00 !
 
+* = $FD00
 GETKEY
 GETKEY	TXA
 	PHA
@@ -1105,7 +1133,7 @@ LFD50	CMP	$213
 	BNE	LFD3D
 	DEC	COUNTR
 	BEQ	LFD5F
-	JSR	KDELAY
+	JSR	KDELAY-OFFSET
 	BEQ	LFD04
 
 LFD5F	LDX	#$64
@@ -1198,6 +1226,9 @@ NEXTLINE	CLC
 ;=================================================================
 ; 65V MONITOR
 ;=================================================================
+; Thir routine must start at $FE00
+
+* = $FE00
 
 NEWMON	LDX	#$28
 	TXS
@@ -1506,7 +1537,7 @@ TENULL	PHA
 	PHA
 	LDX	#$A
 	LDA	#0
-LFFB3	JSR	ACIAOUT
+LFFB3	JSR	ACIAOUT-OFFSET
 	DEX
 	BNE	LFFB3
 	PLA
