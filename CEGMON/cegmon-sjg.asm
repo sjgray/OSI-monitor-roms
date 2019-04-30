@@ -27,6 +27,18 @@
 ; CTRL-D CTRL-F - Edit Cursor RIGHT (forward)
 ; CTRL-F CTRL-N - Edit Cursor DOWN (next line)
 ; ESC    CTRL-Y - Copy character at edit cursor (CTRL-Q on UK-101) (yank)
+;
+; Machine Code Monitor:
+; COMMAND/ADDRESS MODE		DATA MODE
+; --------------------		----------
+; / - Jump to Data Mode		. - Return to Address Mode
+; L - Load			/ - Re-open current address
+; S - Save			G - Start execution at current
+; M - Memory Move		' - Enter Text entry loop
+; T - Tabular memory display	LF- Increment current address
+; Z - Set a breakpoint		CR- Increment on current line
+; R - Restart from Breakpoint   ^ - Decrement current address
+; U - Jump to User routine
 
 
 ;=================================================================
@@ -55,15 +67,15 @@ EMACS   = 0     ; 0=No, 1=Yes - Enable EMACS-like Editing keys
 ; Symbols for ROM and IO space
 ;=================================================================
 
-BASIC	= $A000			; BASIC ROM
-DISK	= $C000			; DISK CONTROLLER (PIA = +$00, ACIA = +$10)
-SCREEN	= $D000			; SCREEN RAM
-KEYBD	= $DF00			; KEYBOARD
-MONITOR = $F800   		; MONITOR ROM
+BASIC	= $A000				; BASIC ROM
+DISK	= $C000				; DISK CONTROLLER (PIA = +$00, ACIA = +$10)
+SCREEN	= $D000				; SCREEN RAM
+KEYBD	= $DF00				; KEYBOARD
+MONITOR = $F800   			; MONITOR ROM
 
-!IF MACHINE=0 { ACIA = $F000 }	; SERIAL PORT (MC6850 ACIA) FOR C1/Superboard
-!IF MACHINE=1 { ACIA = $F000 }	; SERIAL PORT (MC6850 ACIA) FOR UK101
-!IF MACHINE=2 { ACIA = $FC00 }	; SERIAL PORT (MC6850 ACIA) FOR C2/C4
+!IF MACHINE=0 { ACIA = $F000 }		; SERIAL PORT (MC6850 ACIA) FOR C1/Superboard
+!IF MACHINE=1 { ACIA = $F000 }		; SERIAL PORT (MC6850 ACIA) FOR UK101
+!IF MACHINE=2 { ACIA = $FC00 }		; SERIAL PORT (MC6850 ACIA) FOR C2/C4
 
 
 ;=================================================================
@@ -73,21 +85,21 @@ MONITOR = $F800   		; MONITOR ROM
 ; $FC00.  The C1 must reproduce these in the monitor for the ACIA
 ; at $F000.
 
-LA34B	= BASIC + $034B		; UK101 BASIC RUBOUT KEY RETURN
-LA374	= BASIC + $0374		; UK101 BASIC RUBOUT KEY RETURN
-LA636	= BASIC + $0636		; CTRL-C HANDLER
-LBD11	= BASIC + $1D11		; BASIC COLD START
-LBF2D	= BASIC + $1F2D		; CRT SIMULATOR
+BROMRUB1 = BASIC + $034B		; UK101 BASIC RUBOUT KEY RETURN
+BROMRUB2 = BASIC + $0374		; UK101 BASIC RUBOUT KEY RETURN
+BROMCC   = BASIC + $0636		; CTRL-C HANDLER
+BROMCOLD = BASIC + $1D11		; BASIC COLD START
+BROMCRTC = BASIC + $1F2D		; CRT SIMULATOR
 
-LBF15	= BASIC + $1F15		; OUTPUT CHAR TO ACIA (C2/C4)
-LBF22	= BASIC + $1F22		; INIT ACIA (C2/C4)
+BROMAOUT = BASIC + $1F15		; OUTPUT CHAR TO ACIA (C2/C4)
+BROMAINI = BASIC + $1F22		; INIT ACIA (C2/C4)
 
 
 ;=================================================================
 ; DISPLAY PARAMETERS
 ;=================================================================
 
-;------ DISPLAY 0 - C1/SB
+;------ DISPLAY 0
 
 !IF DISPLAY=0 {
 WIDTH	= 32			; SCREEN WIDTH
@@ -148,15 +160,22 @@ BASE	= TOP+(ROWS-1)*WIDTH	; Start of Last Line of screen
 ; Symbols for Zero Page Storage
 ;=================================================================
 
-; $0F     - Terminal Width
-; $13-$?? - Keyboard Buffer
-; $BC-$D3 - BASIC Character Get routine
-; $E4-$E5 - CEGMON Temp (ie: edit cursor, GO address, new block)
-; $E7
-; $F9-$FA - CEGMON Temp (screen clear)
-; $FB     - LOAD Flag
-; $FC-$FF - SYNMON usage
-
+TERMWID	= $0F			; $0F - Terminal Width (not used)
+ZPE0	= $E0			; $E0 - MLM "A" Register
+ZPE1	= $E1			; $E1 - MLM "X" Register
+ZPE2	= $E2			; $E2 - MLM "Y" Register
+ZPE3	= $E3			; $E3 - MLM "P" Register
+ZPE4	= $E4			; $E4 - MLM Stack Pointer
+ZPE5	= $E5			; $E5 - MLM PC Counter LO
+ZPE6	= $E6			; $E6 - MLM PC Counter HI
+ZPE7	= $E7			; $E7 - ???
+ZPF9	= $F9			; $F9 - CEGMON Temp (screen clear)
+ZPFA	= $FA			; $FA - CEGMON Temp (screen clear)
+LOADFLAG= $FB     		; $FB - LOAD Flag
+ZPFC	= $FC			; $FC - ???
+ZPFD	= $FD			; $FD - ???
+ZPFE    = $FE			; $FE - ???
+ZPFF    = $FF			; $FF - ???
 
 ;=================================================================
 ; Symbols for Stack Page
@@ -211,11 +230,8 @@ HTEXT   = LTEXT+1		; $022C > HI BYTE of text-line start
 XDEX    = $022D			; $022D > DEX
 XRTS    = $022E			; $022E > RTS
 
-;------------------------------
-
-TEMP22F = $022F			; ??? appear to not be used
-TEMP230 = $0230			; ??? appear to not be used
-
+DISP	= $022F			; Edit Cursor displacement from start of current line
+CURCHR	= $0230			; Character beneath Edit Curstor
 CURSLO  = $0231			; Lo byte of cursor position
 CURSHI  = CURSLO+1		; Hi byte of cursor position
 USERLO  = $0233			; Lo byte of Monitor U command jump vector
@@ -265,13 +281,13 @@ RUBOUT	LDA	$E
 	DEC	$E
 	BEQ	LF80A
 	DEC	$E
-LF80A	LDA	#32				;$20 - Width of physical line
+LF80A	LDA	#WIDTH			; Width of physical line
 	STA	OLDCHR
 	JSR	SCOUT2
 	BPL	LF82D
 	SEC
 	LDA	LTEXT
-	SBC	#32				;$20 - Width of physical line
+	SBC	#WIDTH			; Width of physical line
 	STA	LTEXT
 	LDA	LTEXT+1
 	SBC	#0
@@ -280,7 +296,7 @@ LF80A	LDA	#32				;$20 - Width of physical line
 	BCS	LF82D
 	JSR	CURHOME
 LF82D	STX	CURDIS
-	JSR	LFF88
+	JSR	MODIFY2
 	JMP	PULLYXA
 
 
@@ -300,7 +316,7 @@ NSCREEN	STA	NEWCHR
 
 LF846	LDY	SDELAY			; SCREEN DELAY
 	BEQ	LF84E
-	JSR	LFCE1-OFFSET
+	JSR	DELAY3-OFFSET
 
 LF84E	CMP	#$5F			; RUBOUT character
 	BEQ	RUBOUT
@@ -316,13 +332,13 @@ LF84E	CMP	#$5F			; RUBOUT character
 
 ;------ More checking
 
-LF861	CMP	#$A			; CTRL-J
+LF861	CMP	#$0A			; CTRL-J
 	BEQ	LINEFD
 
 	CMP	#$1E			; CTRL Up-Arrow
 	BEQ	CTRLUA
 
-	CMP	#$B			; CTRL-K
+	CMP	#$0B			; CTRL-K
 	BEQ	CTRLK
 
 	CMP	#$1A			; CTRL-Z (Clear Screen)
@@ -346,7 +362,7 @@ CTRLK	JSR	SCOUT
 	INX
 	CPX	SWIDTH
 	BMI	LF8CF
-	JSR	LFF70
+	JSR	MODIFY0
 
 ;------ LINE FEED
 
@@ -358,7 +374,8 @@ LINEFD	JSR	SCOUT
 	JSR	NEXTLINE
 	JMP	LF8CF
 
-LF89E	JSR	LFE28
+;------ 
+LF89E	JSR	CRSRUP
 	JSR	CURHOME
 	JSR	NEXTLINE
 	LDX	SWIDTH
@@ -378,8 +395,7 @@ LF8C6	LDA	SLTOP,X
 	STA	LSRC,X
 	DEX
 	BPL	LF8C6
-LF8CF	JSR	LFF75
-
+LF8CF	JSR	MODIFY1
 
 PULLYXA	PLA
 	TAY
@@ -390,7 +406,7 @@ PULLYXA	PLA
 
 ;------ CTRL-Z (CLEAR ENTIRE SCREEN)
 
-CTRLZ	JSR	LFE59
+CTRLZ	JSR	SCNCLR
 	STA	OLDCHR
 	BEQ	LF904
 
@@ -421,13 +437,13 @@ LF90F	JSR	CTRLF
 	JSR	SPCOUT
 	JSR	GRTOUT
 	LDX	#8				; # BYTES DISPLAYED
-	STX	$FD
+	STX	ZPFD
 LF91F	JSR	SPCOUT
-	JSR	LFEF0
+	JSR	PRBYTE
 	JSR	NOTEND
 	BCS	LF97B
 	JSR	BUMP
-	DEC	$FD
+	DEC	ZPFD
 	BNE	LF91F
 	BEQ	LF90F
 
@@ -439,17 +455,17 @@ LF933	JSR	TRIQAD
 
 ;------ 'R' (RESTART FROM BREAKPOINT)
 
-LF93B	LDX	$E4
+LF93B	LDX	ZPE4
 	TXS
-	LDA	$E6
+	LDA	ZPE6
 	PHA
-	LDA	$E5
+	LDA	ZPE5
 	PHA
-	LDA	$E3
+	LDA	ZPE3
 	PHA
-	LDA	$E0
-	LDX	$E1
-	LDY	$E2
+	LDA	ZPE0
+	LDX	ZPE1
+	LDY	ZPE2
 	RTI
 
 ;------ 'Z' (SET BREAKPOINT)
@@ -459,12 +475,12 @@ LF950	LDA	LFA4C-1,X
 	STA	IRQ-1,X
 	DEX
 	BNE	LF950
-	JSR	LFE8D
+	JSR	CHKLOAD2
 	JSR	GETQDE
-	LDA	($FE),Y
-	STA	$E7
+	LDA	(ZPFE),Y
+	STA	ZPE5
 	TYA
-	STA	($FE),Y
+	STA	(ZPFE),Y
 	BEQ	MSTART
 
 ;------ 'S' (SAVE)
@@ -473,7 +489,7 @@ LF968	JMP	SAVEMC
 
 ;------ 'L' (LOAD)
 
-LF96B	DEC	$FB
+LF96B	DEC	LOADFLAG
 	BNE	LF9E8
 
 ;------ 'T' (TABULAR DISPLAY)
@@ -481,7 +497,7 @@ LF96B	DEC	$FB
 LF96F	BEQ	LF90C
 LF971	RTS
 
-LF972	LDA	$FB
+LF972	LDA	LOADFLAG
 	BNE	LF971
 	LDA	#'?'
 	JSR	JUMPOUT
@@ -491,12 +507,12 @@ LF97B	LDX	#$28
 
 MSTART	JSR	CTRLF
 	LDY	#0
-	STY	$FB
+	STY	LOADFLAG
 	JSR	GRTOUT
 
 ;------ '.' (COMMAND/ADDRESS MODE)
 
-LF988	JSR	LFE8D
+LF988	JSR	CHKLOAD2
 	CMP	#'M'
 	BEQ	LF933
 	CMP	#'R'
@@ -513,27 +529,27 @@ LF988	JSR	LFE8D
 
 ;------ TWOQAD - Collect two addresses. First to FE/FF, second to F9/FA
 
-TWPQAD	JSR	LFE8D
+TWPQAD	JSR	CHKLOAD2
 	JSR	GETQDE
 	JSR	CMAOUT
 	LDX	#0
-LF9B1	JSR	LFE8D
+LF9B1	JSR	CHKLOAD2
 	!BYTE	$2C
 
 ;------ GETQDE - Collect address, store in FE. NOTE: Call GETNEW first!
 
 GETQDE
 GETQDE	LDX	#5
-	JSR	LF9C0
-	JSR	LFE8D
+	JSR	GETPRC2
+	JSR	CHKLOAD2
 	!BYTE	$2C
 
 ;------ Collect Hex Pair for data byte, store in FC. NOTE: Call GETNEW first!
 
 GETPRC	LDX	#3
-LF9C0	JSR	LF9C6
-	JSR	LFE8D
-LF9C6	CMP	#'.'
+GETPRC2	JSR	GETPRC3
+	JSR	CHKLOAD2
+GETPRC3	CMP	#'.'
 	BEQ	LF988
 	CMP	#'/'
 	BEQ	LF9E8
@@ -547,15 +563,15 @@ LF9D6	CMP	#'T'
 
 LF9DD	LDA	#'/'
 	JSR	JUMPOUT
-	JSR	LFEF0
+	JSR	PRBYTE
 	JSR	SPCOUT
 
 ;------ '/' (DATA MODE)
 
-LF9E8	JSR	LFE8D
-	CMP	#'G'
+LF9E8	JSR	CHKLOAD2
+	CMP	#'G'				; G=GO - Execute code
 	BNE	LF9F2
-	JMP	($FE)
+	JMP	(ZPFE)
 
 LF9F2	CMP	#','
 	BNE	LF9FC
@@ -566,13 +582,15 @@ LF9FC	CMP	#$A
 	BEQ	LFA16
 	CMP	#$D
 	BEQ	LFA1B
+
 	CMP	#'^'
 	BEQ	LFA21
+
 	CMP	#$27
 	BEQ	LFA3A
 	JSR	GETPRC
-	LDA	$FC
-	STA	($FE),Y
+	LDA	ZPFC
+	STA	(ZPFE),Y
 LFA13	JMP	LF9E8
 
 LFA16	LDA	#$D
@@ -584,12 +602,12 @@ LFA1B	JSR	BUMP
 ;------ '^'
 
 LFA21	SEC
-	LDA	$FE
+	LDA	ZPFE
 	SBC	#1
-	STA	$FE
-	LDA	$FF
+	STA	ZPFE
+	LDA	ZPFF
 	SBC	#0
-	STA	$FF
+	STA	ZPFF
 
 DATALN	JSR	CTRLF
 
@@ -600,7 +618,7 @@ LFA37	JSR	LFEF7
 
 ;------ "'"
 
-LFA3A	JSR	LFE8D
+LFA3A	JSR	CHKLOAD2
 	CMP	#$27
 	BNE	LFA46
 	JSR	CMAOUT
@@ -611,41 +629,41 @@ LFA46	CMP	#$D
 
 LFA4C	JMP	LFA4F
 
-LFA4F	STA	$E0
+LFA4F	STA	ZPE0
 	PLA
 	PHA
 	AND	#$10
 	BNE	LFA5A
-	LDA	$E0
+	LDA	ZPE0
 	RTI
 
 ;------ SAVE REGISTERS ON BREAK
 
-LFA5A	STX	$E1
-	STY	$E2
+LFA5A	STX	ZPE1
+	STY	ZPE2
 	PLA
-	STA	$E3
+	STA	ZPE3
 	CLD
 	SEC
 	PLA
 	SBC	#2
-	STA	$E5
+	STA	ZPE5
 	PLA
 	SBC	#0
-	STA	$E6
+	STA	ZPE6
 	TSX
-	STX	$E4			; **BUG FIX** (ORIGINAL VALUE WAS $E1)
+	STX	ZPE4			; **BUG FIX** (ORIGINAL VALUE WAS $E1)
 	LDY	#0
-	LDA	$E7
-	STA	($E5),Y
+	LDA	ZPE5
+	STA	(ZPE5),Y
 	LDA	#$E0
-	STA	$FE
-	STY	$FF
+	STA	ZPFE
+	STY	ZPFF
 	BNE	DATALN
 
 SAVEMC	JSR	TRIQAD
 	JSR	JUMPSV
-	JSR	LFEE9
+	JSR	CHKLOAD
 	JSR	JUMPOUT
 	JSR	PERIOD
 	LDA	#'/'
@@ -653,15 +671,15 @@ SAVEMC	JSR	TRIQAD
 	BNE	LFA97
 LFA94	JSR	BUMP
 
-LFA97	JSR	LFEF0
+LFA97	JSR	PRBYTE
 	LDA	#$D
 	JSR	ACIAOUT-OFFSET
 	JSR	NOTEND
 	BCC	LFA94
-	LDA	$E4
-	LDX	$E5
-	STA	$FE
-	STX	$FF
+	LDA	ZPE4
+	LDX	ZPE5
+	STA	ZPFE
+	STX	ZPFF
 	JSR	PERIOD
 	LDA	#'G'
 	JSR	JUMPOUT
@@ -679,18 +697,18 @@ EDITOR	TXA
 	PHA
 	LDA	EDFLAG
 	BPL	LFB1F
-EDLOOP	LDY	TEMP22F
+EDLOOP	LDY	DISP
 	LDA	CURSLO
-	STA	$E4
+	STA	ZPE4
 	LDA	CURSLO+1
-	STA	$E5
-	LDA	($E4),Y
-	STA	TEMP230
+	STA	ZPE5
+	LDA	(ZPE4),Y
+	STA	CURCHR
 	LDA	#$A1
-	STA	($E4),Y
+	STA	(ZPE4),Y
 	JSR	GETKEY
-	LDA	TEMP230
-	STA	($E4),Y
+	LDA	CURCHR
+	STA	(ZPE4),Y
 
 ;------ Test for Cursor Movement A/S/D/F and Q/ESC to Copy
 
@@ -729,12 +747,12 @@ CHKEDIT	LDA	SCRTCH
 
 ;------ CTRL-S (cursor up)
 
-LFB01	JSR	LFE28
+LFB01	JSR	CRSRUP
 	JMP	EDLOOP
 
 ;------ CTRL-D (cursor right)
 
-LFB07	JSR	LFB6B
+LFB07	JSR	CRSRFWD
 	JMP	EDLOOP
 
 ;------ CTRL-A (cursor left)
@@ -744,9 +762,9 @@ LFB0D	JSR	LFE19
 
 ;------ CTRL-Q / ESC (copy character at edit cursor)
 
-LFB13	LDA	TEMP230
+LFB13	LDA	CURCHR
 	STA	SCRTCH
-	JSR	LFB6B
+	JSR	CRSRFWD
 	JMP	LFB43
 
 LFB1F	JSR	GETKEY
@@ -766,7 +784,7 @@ LFB22	CMP	#5
 	LDA	LTEXT+1
 	STA	CURSLO+1
 	LDX	#0
-	STX	TEMP22F
+	STX	DISP
 	BEQ	EDLOOP
 LFB43	JMP	LFDD3
 
@@ -794,18 +812,18 @@ TAPIN	LDA	ACIA
 	RTS
 
 LFB61	LDA	#0
-	STA	$FB
+	STA	LOADFLAG
 	STA	LDFLAG
 LFB68	JMP	EDITOR
 
-LFB6B	LDX	SWIDTH
-	CPX	TEMP22F
+CRSRFWD	LDX	SWIDTH
+	CPX	DISP
 	BEQ	LFB77
-	INC	TEMP22F
+	INC	DISP
 	RTS
 
 LFB77	LDX	#0
-	STX	TEMP22F
+	STX	DISP
 LFB7C	CLC
 	LDA	CURSLO
 	ADC	#WIDTH 				; Physical line width
@@ -833,7 +851,7 @@ CTRLC	LDA	CCFLAG
 	BIT	KEYBD
 	BVS	LFB93
 	LDA	#3	; CTRL-C PRESSED
-	JMP	LA636
+	JMP	BROMCC
 
 ;=================================================================
 ; TABLE to setup screen parameters and vectors
@@ -886,20 +904,20 @@ SPCOUT	LDA	#' '
 ;=================================================================
 
 NOTEND	SEC
-	LDA	$FE
-	SBC	$F9
-	LDA	$FF
-	SBC	$FA
+	LDA	ZPFE
+	SBC	ZPF9
+	LDA	ZPFF
+	SBC	ZPFA
 	RTS
 
 ;=================================================================
 ; CRLF - Print CR and LF to display
 ;=================================================================
 
-CTRLF	LDA	#$D
-	JSR	JUMPOUT
-	LDA	#$A
-	JMP	JUMPOUT
+CTRLF	LDA	#$0D			; CARRIAGE RETURN
+	JSR	JUMPOUT			; PRINT IT
+	LDA	#$0A			; LINE FEED
+	JMP	JUMPOUT			; PRINT IT
 
 	!BYTE	$40
 
@@ -910,7 +928,7 @@ CTRLF	LDA	#$D
 
 BOOTSTRP
 	JSR	LFC0C-OFFSET
-	JMP	($FD)
+	JMP	(ZPFD)
 
 	JSR	LFC0C-OFFSET
 	JMP	NEWMON
@@ -954,21 +972,21 @@ LFC5A	LDA	DISK
 	LDA	#$58
 	STA	DISK+$10
 	JSR	DISKIN-OFFSET
-	STA	$FE
+	STA	ZPFE
 	TAX
 	JSR	DISKIN-OFFSET
-	STA	$FD
+	STA	ZPFD
 	JSR	DISKIN-OFFSET
-	STA	$FF
+	STA	ZPFF
 	LDY	#0
 LFC7B	JSR	DISKIN-OFFSET
-	STA	($FD),Y
+	STA	(ZPFD),Y
 	INY
 	BNE	LFC7B
-	INC	$FE
-	DEC	$FF
+	INC	ZPFE
+	DEC	ZPFF
 	BNE	LFC7B
-	STX	$FE
+	STX	ZPFE
 	LDA	#$FF
 	STA	DISK+2
 	RTS
@@ -976,7 +994,7 @@ LFC7B	JSR	DISKIN-OFFSET
 LFC91	LDY	#$F8
 LFC93	DEY
 	BNE	LFC93
-	EOR	$FF,X
+	EOR	ZPFF,X
 	DEX
 	BNE	LFC91
 	RTS
@@ -989,9 +1007,12 @@ DISKIN	LDA	DISK+$10
 	LDA	DISK+$11
 LFCA5	RTS
 
-;------ INIT ACIA
+;=================================================================
+; INIT ACIA
+;=================================================================
 
-LFCA6	LDA	#3			; RESET ACIA
+INITACIA
+	LDA	#3			; RESET ACIA
 	STA	ACIA
 
 !IF MACHINE=0 {	LDA #$11 }		; /16, 8BITS, 2STOP, RTS LOW
@@ -1001,13 +1022,17 @@ LFCA6	LDA	#3			; RESET ACIA
 	STA	ACIA
 	RTS
 
-;------ OUTPUT CHAR TO ACIA
+;=================================================================
+; OUTPUT CHAR TO ACIA
+;=================================================================
 
-ACIAOUT	PHA
-LFCB2	LDA	ACIA
+ACIAOUT
+	PHA
+ACIAOUT2
+	LDA	ACIA
 	LSR	
 	LSR	
-	BCC	LFCB2
+	BCC	ACIAOUT2
 	PLA
 	STA	ACIA+1
 	RTS
@@ -1043,13 +1068,17 @@ KYREAD	LDA	KEYBD
 	EOR	#$FF
 	RTS
 
-;------ UK101 BASIC ROM RUBOUT KEY HANDLER
 
-LFCD5	CMP	#$5F	; RUBOUT
-	BEQ	LFCDC
-	JMP	LA374
+;=================================================================
+; UK101 BASIC ROM RUBOUT KEY HANDLER
+;=================================================================
 
-LFCDC	JMP	LA34B
+UKRUBOUT
+	CMP	#$5F			; RUBOUT
+	BEQ	UKRUB2
+	JMP	BROMRUB2
+UKRUB2	JMP	BROMRUB1
+
 
 ;=================================================================
 ; KDELAY - Delay for keyboard read. Set X=0,Y=0
@@ -1058,11 +1087,11 @@ LFCDC	JMP	LA34B
 KDELAY	LDY	#$10
 
 DELAY2
-LFCE1	LDX	#$40
+DELAY3	LDX	#$40
 LFCE3	DEX
 	BNE	LFCE3
 	DEY
-	BNE	LFCE1
+	BNE	DELAY3
 	RTS
 
 
@@ -1102,7 +1131,7 @@ LFD13	LSR
 	LDA	#$1B
 	BNE	LFD50
 
-LFD1F	JSR	LFE86
+LFD1F	JSR	BITSHIFT
 	TYA
 	STA	SCRTCH
 	ASL	
@@ -1114,7 +1143,7 @@ LFD1F	JSR	LFE86
 	TXA
 	LSR	
 	ASL	
-	JSR	LFE86
+	JSR	BITSHIFT
 	BEQ	LFD47
 	LDA	#0
 LFD3A	STA	LSTCHR
@@ -1201,14 +1230,14 @@ LFDD3	PLA
 	RTS
 
 LFDDB	JSR	BUMP
-	INC	$E4
+	INC	ZPE4
 	BNE	SWAPMEM
-	INC	$E5
+	INC	ZPE5
 
 ;------ SWAP Memory block move
 ;SWAP
-SWAPMEM	LDA	($FE),Y
-	STA	($E4),Y
+SWAPMEM	LDA	(ZPFE),Y
+	STA	(ZPE4),Y
 	JSR	NOTEND
 	BCC	LFDDB
 	RTS
@@ -1226,33 +1255,35 @@ NEXTLINE	CLC
 ;=================================================================
 ; 65V MONITOR
 ;=================================================================
-; Thir routine must start at $FE00
+; This routine must start at $FE00
 
 * = $FE00
 
 NEWMON	LDX	#$28
 	TXS
 	CLD
-	JSR	LFCA6
-	JSR	LFE40
+	JSR	INITACIA
+	JSR	INIT218
 	NOP
 	NOP
 MENTRY
-	JSR	LFE59
+	JSR	SCNCLR
 	STA	OLDCHR
-	STY	$FE
-	STY	$FF
+	STY	ZPFE
+	STY	ZPFF
 	JMP	MSTART
 
-LFE19	LDX	TEMP22F
+LFE19	LDX	DISP
 	BEQ	LFE22
-	DEC	TEMP22F
+	DEC	DISP
 	RTS
 
 LFE22	LDX	SWIDTH
-	STX	TEMP22F
+	STX	DISP
 
-LFE28	SEC
+;------ Cursor UP
+
+CRSRUP	SEC
 	LDA	CURSLO
 	SBC	#WIDTH 			; Physical line width
 	STA	CURSLO
@@ -1264,7 +1295,9 @@ LFE28	SEC
 LFE3C	STA	CURSLO+1
 	RTS
 
-LFE40	LDY	#$1C			; INIT 218-234
+;------ 
+
+INIT218	LDY	#$1C			; INIT 218-234
 LFE42	LDA	SETUPTBL,Y		; Read from Screen and Vector SETUP Table
 	STA	INVECP,Y		; Write it
 	DEY
@@ -1277,21 +1310,23 @@ LFE52	STA	CURDIS-1,Y
 	BNE	LFE52
 	RTS
 
-;------ CLEAR SCREEN
 
-SCNCLR
-LFE59	LDY	#0
-	STY	$F9
+;=================================================================
+; CLEAR SCREEN
+;=================================================================
+
+SCNCLR	LDY	#0
+	STY	ZPF9
 	LDA	#>SCREEN		; HI Byte of start of SCREEN
-	STA	$FA
-	LDX	#(SIZE+1)*4 		;8
-	LDA	#' '
-LFE65	STA	($F9),Y
-	INY
-	BNE	LFE65
-	INC	$FA
-	DEX
-	BNE	LFE65
+	STA	ZPFA
+	LDX	#(SIZE+1)*4 		; How many pages to clear?
+	LDA	#' '			; SPACE character
+SCLOOP	STA	(ZPF9),Y		; Store it
+	INY				; Next position
+	BNE	SCLOOP			; Loop back for more
+	INC	ZPFA			; Increment HI byte of address
+	DEX				; Done one screen page
+	BNE	SCLOOP			; Are we done? No, loop back
 	RTS
 
 ;------ LOAD
@@ -1317,13 +1352,23 @@ MCACIA	JSR	TAPIN
 	AND	#$7F			; CLEAR BIT 7
 	RTS
 
-LFE86	LDY	#8
-LFE88	DEY
+;=================================================================
+; BIT SHIFTER - LEFT 
+;=================================================================
+
+BITSHIFT
+	LDY	#8
+BITSHFT2
+	DEY
 	ASL	
-	BCC	LFE88
+	BCC	BITSHFT2
 	RTS
 
-LFE8D	JSR	LFEE9
+;=================================================================
+; ?
+;=================================================================
+
+CHKLOAD2	JSR	CHKLOAD
 	JMP	JUMPOUT
 
 ;=================================================================
@@ -1359,19 +1404,19 @@ ADVTOD	JSR	QDDATD
 QDDATD	LDX	#3
 	JSR	PRDATD2
 	DEX
-	!BYTE	$2C
+	!BYTE	$2C				; BIT
 
 ;------ Print Data Byte in FC to display
 
 PRDATD	LDX	#0
 
-PRDATD2	LDA	$FC,X
+PRDATD2	LDA	ZPFC,X
 	LSR	
 	LSR	
 	LSR	
 	LSR	
 	JSR	HEXOUT
-	LDA	$FC,X
+	LDA	ZPFC,X
 
 ;------ Strip byte in A to lower nibble, print it as ASCII hex to display
 
@@ -1383,7 +1428,7 @@ HEXOUT	AND	#$F
 	ADC	#7
 LFED5	JMP	JUMPOUT
 
-	!BYTE	$EA,$EA
+	!BYTE	$EA,$EA				; Wow, 2 unused bytes!
 
 ;------ Roll new nibble into FE if X=2, or into FC if X=0
 
@@ -1393,30 +1438,38 @@ ROLSTR	LDY	#4
 	ASL	
 	ASL	
 LFEE0	ROL	
-	ROL	$F9,X
-	ROL	$FA,X
+	ROL	ZPF9,X
+	ROL	ZPFA,X
 	DEY
 	BNE	LFEE0
 	RTS
 
-LFEE9	LDA	$FB
-	BNE	MCACIA
-	JMP	GETKEY
+;=================================================================
+; Check LOADFLAG
+;=================================================================
+; 0=Get Key, 1=Get from ACIA
 
-;------ Print data at current address, pointed to by FE to display. Assume Y=0
+CHKLOAD	LDA	LOADFLAG			; Check the LOAD FLAG
+	BNE	MCACIA				; >0? Yes, do ACIA
+	JMP	GETKEY				; =0, do keyboard
 
-PRBYTE
-LFEF0	LDA	($FE),Y
-	STA	$FC
+;=================================================================
+; Print data at current address, pointed to by FE to display. Assume Y=0
+;=================================================================
+
+PRBYTE	LDA	(ZPFE),Y
+	STA	ZPFC
 	JMP	PRDATD
 
-LFEF7	STA	($FE),Y
+LFEF7	STA	(ZPFE),Y
 
-;------ Increment current address at FE
+;=================================================================
+; Increment current address at FE
+;=================================================================
 
-BUMP	INC	$FE
+BUMP	INC	ZPFE
 	BNE	LFEFF
-	INC	$FF
+	INC	ZPFF
 LFEFF	RTS
 
 
@@ -1427,9 +1480,9 @@ LFEFF	RTS
 RESET	CLD
 	LDX	#$28
 	TXS
-	JSR	LFCA6
-	JSR	LFE40
-	JSR	LFE59
+	JSR	INITACIA
+	JSR	INIT218
+	JSR	SCNCLR
 	STY	CURDIS			;JSR	CURHOME
 
 ;------ Display Power-on Banner ("CEGMON D/C/W/M?")
@@ -1459,7 +1512,7 @@ LFF2E	CMP	#'W'			; Is it "W" (Warm Start)?
 
 LFF35	CMP	#'C'			; Is it "C" (Cold Start)?
 	BNE	RESET			; No, do a RESET
-	JMP	LBD11			; Yes, do it
+	JMP	BROMCOLD		; Yes, do it
 
 
 ;=================================================================
@@ -1488,16 +1541,16 @@ KMATRIX	!TEXT "P;/ ZAQ"
 
 MODIFYX	JSR	SCOUT
 
-LFF70	LDX	#0
+MODIFY0	LDX	#0
 	STX	CURDIS
-LFF75	LDX	CURDIS
+MODIFY1	LDX	CURDIS
 	LDA	#$BD			; "LDA" instruction (LDA ABS,X)
 	STA	XSTA
 	JSR	XSTA
 	STA	OLDCHR
 	LDA	#$9D			; "STA" instruction (STA ABS,X)
 	STA	XSTA
-LFF88	LDA	#$5F
+MODIFY2	LDA	#$5F
 	BNE	SCOUT2
 
 ;=================================================================
@@ -1513,8 +1566,8 @@ SCOUT2	LDX	CURDIS
 ;=================================================================
 ; Use BASIC's screen handler at $BF2D
 
-OLDSCR	JSR	LBF2D
-	JMP	LFF9E
+OLDSCR	JSR	BROMCRTC
+	JMP	OUTPUT2
 
 ;=================================================================
 ; OUTPUT
@@ -1522,15 +1575,18 @@ OLDSCR	JSR	LBF2D
 ; General output to screen or ACIA
 
 OUTPUT	JSR	NSCREEN
-LFF9E	PHA
-	LDA	SVFLAG
-	BEQ	LFFBB	; SAVE FLAG CLR
+OUTPUT2	PHA
+	LDA	SVFLAG			; ARE WE SAVING?
+	BEQ	LFFBB			; SAVE FLAG CLR
 	PLA
-	JSR	ACIAOUT	; CHAR TO ACIA
-	CMP	#$D
-	BNE	LFFBC	; NOT CR
+	JSR	ACIAOUT			; CHAR TO ACIA
+	CMP	#$D			; IS IT CARRIAGE RETURN?
+	BNE	LFFBC			; NO, SKIP
 
-;------ 10 NULLS
+
+;=================================================================
+; OUTPUT 10 NULLS
+;=================================================================
 
 TENULL	PHA
 	TXA
@@ -1553,10 +1609,10 @@ TRIQAD	JSR	TWPQAD
 	JSR	GRTOUT
 	LDX	#3
 	JSR	LF9B1
-	LDA	$FC
-	LDX	$FD
-	STA	$E4
-	STX	$E5
+	LDA	ZPFC
+	LDX	ZPFD
+	STA	ZPE4
+	STX	ZPE5
 	RTS
 
 ;=================================================================
@@ -1576,9 +1632,9 @@ CHLOOP	LDA	SLTOP-1,X
 ;=================================================================
 ; These bytes must not moved! They are used for BASIC printing
 
-LFFE0	!BYTE	<BASE		; CURSOR START
-LFFE1	!BYTE	LWIDTH		; LINE LENGTH - 1
-LFFE2	!BYTE	SIZE		; SCREEN SIZE (0=1K 1=2K)
+LFFE0	!BYTE	<BASE			; CURSOR START
+LFFE1	!BYTE	LWIDTH			; LINE LENGTH - 1
+LFFE2	!BYTE	SIZE			; SCREEN SIZE (0=1K 1=2K)
 
 ;=================================================================
 ; Print a PERIOD
