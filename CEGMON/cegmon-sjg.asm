@@ -65,7 +65,7 @@
 ;-----------------------------------------------------------------   
 ; Edit the following for your desired features/options:
 
-MACHINE = 1	; 0 to 2      - Determines Machine hardware config
+MACHINE = 0	; 0 to 2      - Determines Machine hardware config
 DISPLAY = 0	; 0 to 4      - Determines Video Display Parameters
 
 OPTEMACS= 0	; 0=No, 1=Yes - Enable EMACS-like Editing keys
@@ -272,6 +272,7 @@ BASE	= TOP+(ROWS-1)*WIDTH	; Start of Last Line of screen
 ;=================================================================
 
 !TO "CEGMON-SJG.BIN",plain
+!TO "CEGMON-SJG011-SB-CWM-CTRL (2019-05-13).BIN",plain
 
 
 ;=================================================================
@@ -318,8 +319,8 @@ RUBOUT2	LDA	#32		; SPACE Character
 
 	SEC
 	LDA	LTEXT		; Position of cursor LO
-!IF OPTCUST=0 {	SBC	#WIDTH } ; Subtract width of physical line (calculated constant)
-!IF OPTCUST=1 {	SBC	PWIDTH } ; Subtract width of physical line (from memory)
+!IF OPTCUST=0 {	SBC #WIDTH }	; Subtract width of physical line (calculated constant)
+!IF OPTCUST=1 {	SBC PWIDTH }	; Subtract width of physical line (from memory)
 	STA	LTEXT		; Store it
 	LDA	LTEXT+1		; Get position of cursor HI
 	SBC	#0		; subtract the carry bit
@@ -1119,7 +1120,7 @@ DLOOP	DEX
 
 BANNER
 !IF OPTBANNR = 0 { !TEXT "CEGMON(C)1980 D/C/W/M?" }
-!IF OPTBANNR = 1 { !TEXT "SJGMON BETA-010 C/W/M?" }
+!IF OPTBANNR = 1 { !TEXT "SJGMON BETA-011 C/W/M?" }
 
 
 ;=================================================================
