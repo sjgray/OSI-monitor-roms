@@ -210,4 +210,4 @@ SWLOOP	LDA WINDOWS,X		; Get window parameter
 ; 
 ;             WW ,TL ,TH ,BL ,BH ,SW, MD
 WINDOWS	!BYTE $17,$85,$D0,$65,$D3,$20,$00	; OFFSET 0 > 24 columns
-	!BYTE $2F,$80,$D0,$40,$D7,$40,$01	; OFFSET 7 > 48 columns
+	!BYTE $2F,$8B,$D0,$4B,$D3,$40,$01	; OFFSET 7 > 48 columns

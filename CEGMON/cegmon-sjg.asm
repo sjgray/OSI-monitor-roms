@@ -1119,7 +1119,7 @@ DLOOP	DEX
 
 BANNER
 !IF OPTBANNR = 0 { !TEXT "CEGMON(C)1980 D/C/W/M?" }
-!IF OPTBANNR = 1 { !TEXT "SJGMON BETA-009 C/W/M?" }
+!IF OPTBANNR = 1 { !TEXT "SJGMON BETA-010 C/W/M?" }
 
 
 ;=================================================================
