@@ -422,8 +422,8 @@ CTRLK	JSR	SCOUT		; Print character at cursor position
 ;------ LINE FEED (Cursor Down)
 
 LINEFD	JSR	SCOUT		; Print character at cursor position
-	LDY	#2
-	JSR	ENDCHK2		; Are we at end of screen
+	LDY	#2		; Offset from SLTOP to compare
+	JSR	ENDCHK2		; Are we at end of screen?
 	BCS	SCROLLUP	; Yes, scroll up
 	LDX	#3
 	JSR	NEXTLINE		
@@ -483,7 +483,7 @@ CUALOOP	LDX	SWIDTH
 CUALOO2	JSR	XSTA		; Write it to screen
 	BPL	CUALOO2		; Loop back
 	STA	OLDCHR		; Set Last Chr as SPACE
-	LDY	#2
+	LDY	#2		; Offset from SLTOP to compare
 	JSR	ENDCHK2		; Are we at end of screen?
 	BCS	CUADONE		; Yes, we're done
 	LDX	#3		; No
@@ -967,15 +967,17 @@ SETUPTBL
 	!WORD	COMMAND		; 233 [$FBCD] 
 
 ;=================================================================
-; [$FBCF] Check if top or base of screen overshot
+; [$FBCF] Check if base of screen overshot
 ;=================================================================
+; This checks if the cursor goes below the screen BASE.
+; Called with Y set to the offset. Returns CARRY FLAG SET
 
-ENDCHK	LDX	SWIDTH
+ENDCHK	LDX	SWIDTH		; Screen Width
 ENDCHK2	SEC
-	LDA	LTEXT
-	SBC	SLTOP,Y
-	LDA	LTEXT+1
-	SBC	SLTOP+1,Y
+	LDA	LTEXT		; Text Pointer LO
+	SBC	SLTOP,Y		; Screen Parameter LO
+	LDA	LTEXT+1		; Text Pointer HI
+	SBC	SLTOP+1,Y	; Screen Parameter HI
 	RTS
 
 ;=================================================================
@@ -1280,17 +1282,18 @@ SWAPMEM	LDA	(ZPFE),Y
 ; [$FDEE] Move to next line on screen
 ;=================================================================
 ; Sets the LSRC pointer to the next physical line
+; X must be set to the proper pointer.
 
 NEXTLINE	CLC
 
 !IF OPTCUST=0 {	LDA #WIDTH }	; Subtract width of physical line (calculated constant)
 !IF OPTCUST=1 {	LDA PWIDTH }	; Subtract width of physical line (from memory)
 
-	ADC	LSRC,X
-	STA	LSRC,X
+	ADC	LSRC,X		; Add the current position LO
+	STA	LSRC,X		; Write it back
 	LDA	#0
-	ADC	LSRC+1,X
-	STA	LSRC+1,X
+	ADC	LSRC+1,X	; Add the CARRY to update the
+	STA	LSRC+1,X	; current position HI byte
 	RTS
 
 ;=================================================================

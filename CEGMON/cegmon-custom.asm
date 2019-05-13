@@ -90,8 +90,24 @@ CCSKIP4 CMP #$17		; Is it CTRL-W (Wide Video Mode - 24/32 columns)
 CCSKIP5 CMP #$0E		; Is it CTRL-N (Narrow Video Mode - 48/64 columns)
 	BEQ CTRLN		; Yes, do it
 
+;	CMP #$16		; Is it CTRL-X (Toggle Width)
+;	BEQ CTRLX		; Yes, Do it
+
 CCDONE	JMP STORKEY		; We didnt find our custom key. Pass it on. We're done!
 
+
+;*****************************************************************
+; CTRL-W - Set 24/32 Column Mode (WIDE Characters)
+;*****************************************************************
+; Removed due to lack of space
+;
+;CTRLX	LDA SHADOW
+;	AND #%00000001
+;	BEQ XWIDE
+;	JSR WIN1
+;	JMP RUBOUT2
+;XWIDE	JSR WIN2
+;	JMP RUBOUT2
 
 ;*****************************************************************
 ; CTRL-W - Set 24/32 Column Mode (WIDE Characters)
