@@ -113,27 +113,27 @@ BROMCRTC = BASIC + $1F2D	; CRT SIMULATOR
 ;=================================================================
 
 ZP0D	= $0D			; $0D - Number of NULL's
-ZP0E    = $0E			; $0E - Terminal Character Count
+CHRCOUNT= $0E			; $0E - Terminal Character Count
 TERMWID	= $0F			; $0F - BASIC Terminal Width (not used)
-ZP10	= $10			; $10 - BASIC Terminal Width columns
-ZP13	= $13			; $13-$5A - Input Buffer
+;ZP10	= $10			; $10 - BASIC Terminal Width columns
+;ZP13	= $13			; $13-$5A - Input Buffer
 
-ZPE0	= $E0			; $E0 - MLM "A" Register
-ZPE1	= $E1			; $E1 - MLM "X" Register
-ZPE2	= $E2			; $E2 - MLM "Y" Register
-ZPE3	= $E3			; $E3 - MLM "P" Register
-ZPE4	= $E4			; $E4 - MLM Stack Pointer
-ZPE5	= $E5			; $E5 - MLM PC Counter LO
-ZPE6	= $E6			; $E6 - MLM PC Counter HI
-ZPE7	= $E7			; $E7 - ???
-ZPE8	= $E8			; $E8 - ???
-ZPF9	= $F9			; $F9 - CEGMON Temp (screen clear)
-ZPFA	= $FA			; $FA - CEGMON Temp (screen clear)
+MLMREGA	= $E0			; $E0 - MLM "A" Register
+MLMREGX	= $E1			; $E1 - MLM "X" Register
+MLMREGY	= $E2			; $E2 - MLM "Y" Register
+MLMREGP	= $E3			; $E3 - MLM "P" Register
+MLMSP	= $E4			; $E4 - MLM Stack Pointer
+MLMPCLO	= $E5			; $E5 - MLM PC Counter LO
+MLMPCHI	= $E6			; $E6 - MLM PC Counter HI
+;ZPE7	= $E7			; $E7 - not used
+;ZPE8	= $E8			; $E8 - not used
+CEGPTRLO= $F9			; $F9 - CEGMON Temp (screen clear)
+CEGPTRHI= $FA			; $FA - CEGMON Temp (screen clear)
 LOADFLAG= $FB     		; $FB - Monitor LOAD Flag
-ZPFC	= $FC			; $FC - Monitor Contents of current memory location
-ZPFD	= $FD			; $FD - ???
-ZPFE    = $FE			; $FE - ???
-ZPFF    = $FF			; $FF - ???
+MLMBYTE	= $FC			; $FC - Monitor Contents of current memory location
+GENSTORE= $FD			; $FD - General Storage
+GENPTRLO= $FE			; $FE - General Pointer LO
+GENPTRHI= $FF			; $FF - General Pointer HI
 
 ;=================================================================
 ; Symbols for Stack Page
@@ -303,11 +303,11 @@ BASE	= TOP+(ROWS-1)*WIDTH	; Start of Last Line of screen
 ; [$F800] RUBOUT
 ;=================================================================
 
-RUBOUT	LDA	ZP0E		; 
+RUBOUT	LDA	CHRCOUNT	; Terminal Character Count
 	BEQ	RUBOUT2		; Is it 0? Yes,
-	DEC	ZP0E		; Subtract 1
+	DEC	CHRCOUNT	; Subtract 1
 	BEQ	RUBOUT2		; Is it 0? Yes,
-	DEC	ZP0E		; Subtract 1
+	DEC	CHRCOUNT	; Subtract 1
 
 RUBOUT2	LDA	#32		; SPACE Character
 	STA	OLDCHR		; Put the SPACE character
@@ -502,13 +502,13 @@ LF90F	JSR	CTRLF
 	JSR	SPCOUT
 	JSR	GRTOUT
 	LDX	#8		; # BYTES DISPLAYED
-	STX	ZPFD
+	STX	GENSTORE
 LF91F	JSR	SPCOUT		; Output a SPACE
 	JSR	PRBYTE
 	JSR	NOTEND
 	BCS	LF97B
 	JSR	BUMP
-	DEC	ZPFD
+	DEC	GENSTORE
 	BNE	LF91F
 	BEQ	LF90F
 
@@ -520,17 +520,17 @@ MLM_M	JSR	TRIQAD
 
 ;------ 'R' (RESTART FROM BREAKPOINT)
 
-MLM_R	LDX	ZPE4
+MLM_R	LDX	MLMSP
 	TXS
-	LDA	ZPE6
+	LDA	MLMPCHI
 	PHA
-	LDA	ZPE5
+	LDA	MLMPCLO
 	PHA
-	LDA	ZPE3
+	LDA	MLMREGP
 	PHA
-	LDA	ZPE0
-	LDX	ZPE1
-	LDY	ZPE2
+	LDA	MLMREGA
+	LDX	MLMREGX
+	LDY	MLMREGY
 	RTI
 
 ;------ 'Z' (SET BREAKPOINT)
@@ -542,10 +542,10 @@ LF950	LDA	LFA4C-1,X
 	BNE	LF950
 	JSR	CHKLOAD2
 	JSR	GETQDE
-	LDA	(ZPFE),Y
-	STA	ZPE5
+	LDA	(GENPTRLO),Y
+	STA	MLMPCLO
 	TYA
-	STA	(ZPFE),Y
+	STA	(GENPTRLO),Y
 	BEQ	MSTART
 
 ;------ 'S' (SAVE)
@@ -636,7 +636,7 @@ DATAMODE
 	JSR	CHKLOAD2
 	CMP	#'G'		; G=GO - Execute code
 	BNE	LF9F2
-	JMP	(ZPFE)
+	JMP	(GENPTRLO)
 
 LF9F2	CMP	#','
 	BNE	LF9FC
@@ -654,8 +654,8 @@ LF9FC	CMP	#$A		; LINEFEED
 	CMP	#$27
 	BEQ	LFA3A
 	JSR	GETPRC
-	LDA	ZPFC
-	STA	(ZPFE),Y
+	LDA	MLMBYTE
+	STA	(GENPTRLO),Y
 LFA13	JMP	DATAMODE
 
 LFA16	LDA	#$D
@@ -667,12 +667,12 @@ LFA1B	JSR	BUMP
 ;------ '^'
 
 LFA21	SEC
-	LDA	ZPFE
+	LDA	GENPTRLO
 	SBC	#1
-	STA	ZPFE
-	LDA	ZPFF
+	STA	GENPTRLO
+	LDA	GENPTRHI
 	SBC	#0
-	STA	ZPFF
+	STA	GENPTRHI
 
 DATALN	JSR	CTRLF
 
@@ -694,36 +694,36 @@ LFA46	CMP	#$D
 
 LFA4C	JMP	LFA4F
 
-LFA4F	STA	ZPE0
+LFA4F	STA	MLMREGA
 	PLA
 	PHA
 	AND	#$10
 	BNE	LFA5A
-	LDA	ZPE0
+	LDA	MLMREGA
 	RTI
 
 ;------ SAVE REGISTERS ON BREAK
 
-LFA5A	STX	ZPE1
-	STY	ZPE2
+LFA5A	STX	MLMREGX
+	STY	MLMREGY
 	PLA
-	STA	ZPE3
+	STA	MLMREGP
 	CLD
 	SEC
 	PLA
 	SBC	#2
-	STA	ZPE5
+	STA	MLMPCLO
 	PLA
 	SBC	#0
-	STA	ZPE6
+	STA	MLMPCHI
 	TSX
-	STX	ZPE4		; **BUG FIX** (ORIGINAL VALUE WAS $E1)
+	STX	MLMSP		; **BUG FIX** (ORIGINAL VALUE WAS $E1)
 	LDY	#0
-	LDA	ZPE5
-	STA	(ZPE5),Y
+	LDA	MLMPCLO
+	STA	(MLMPCLO),Y
 	LDA	#$E0
-	STA	ZPFE
-	STY	ZPFF
+	STA	GENPTRLO
+	STY	GENPTRHI
 	BNE	DATALN
 
 SAVEMC	JSR	TRIQAD
@@ -741,10 +741,10 @@ LFA97	JSR	PRBYTE
 	JSR	ACIAOUT-OFFSET
 	JSR	NOTEND
 	BCC	LFA94
-	LDA	ZPE4
-	LDX	ZPE5
-	STA	ZPFE
-	STX	ZPFF
+	LDA	MLMSP
+	LDX	MLMPCLO
+	STA	GENPTRLO
+	STX	GENPTRHI
 	JSR	PERIOD
 	LDA	#'G'
 	JSR	JUMPOUT		; Print It
@@ -766,16 +766,16 @@ EDITOR	TXA			; Push X,Y
 
 EDLOOP	LDY	EDISP		; Edit Cursor displacement from start of current line
 	LDA	CURSLO
-	STA	ZPE4
+	STA	MLMSP
 	LDA	CURSLO+1
-	STA	ZPE5
-	LDA	(ZPE4),Y
+	STA	MLMPCLO
+	LDA	(MLMSP),Y
 	STA	CURCHR		; Character under edit cursor
 	LDA	#$A1
-	STA	(ZPE4),Y
+	STA	(MLMSP),Y
 	JSR	GETKEY		; Poll the keyboard
 	LDA	CURCHR		; Character under edit cursor
-	STA	(ZPE4),Y
+	STA	(MLMSP),Y
 
 ;------ Test for Cursor Movement A/S/D/F and Q/ESC to Copy
 
@@ -996,10 +996,10 @@ SPCOUT	LDA	#' '
 ;=================================================================
 
 NOTEND	SEC
-	LDA	ZPFE
-	SBC	ZPF9
-	LDA	ZPFF
-	SBC	ZPFA
+	LDA	GENPTRLO
+	SBC	CEGPTRLO
+	LDA	GENPTRHI
+	SBC	CEGPTRHI
 	RTS
 
 ;=================================================================
@@ -1266,14 +1266,14 @@ PULLYX	PLA
 ;------ ????
 
 LFDDB	JSR	BUMP
-	INC	ZPE4
+	INC	MLMSP
 	BNE	SWAPMEM
-	INC	ZPE5
+	INC	MLMPCLO
 
 ;------ SWAP Memory block move
 
-SWAPMEM	LDA	(ZPFE),Y
-	STA	(ZPE4),Y
+SWAPMEM	LDA	(GENPTRLO),Y
+	STA	(MLMSP),Y
 	JSR	NOTEND
 	BCC	LFDDB
 	RTS
@@ -1316,8 +1316,8 @@ NEWMON	LDX	#$28
 
 MENTRY	JSR	SCNCLR		; Clear the screen
 	STA	OLDCHR
-	STY	ZPFE
-	STY	ZPFF
+	STY	GENPTRLO
+	STY	GENPTRHI
 	JMP	MSTART
 
 LFE19	LDX	EDISP		; Edit Cursor displacement from start of current line
@@ -1373,17 +1373,17 @@ ILOOP2	STA	CURDIS-1,Y
 ; Clears the entire video screen (ignores current WINDOW).
 
 SCNCLR	LDY	#<SCREEN	; LO Byte of start of SCREEN
-	STY	ZPF9
+	STY	CEGPTRLO
 	LDA	#>SCREEN	; HI Byte of start of SCREEN
-	STA	ZPFA
+	STA	CEGPTRHI
 
 	LDX	#(SIZE+1)*4 	; How many pages to clear?
 	LDA	#' '		; SPACE character
 
-SCLOOP	STA	(ZPF9),Y	; Store it
+SCLOOP	STA	(CEGPTRLO),Y	; Store it
 	INY			; Next position
 	BNE	SCLOOP		; Loop back for more
-	INC	ZPFA		; Increment HI byte of address
+	INC	CEGPTRHI		; Increment HI byte of address
 	DEX			; Done one screen page
 	BNE	SCLOOP		; Are we done? No, loop back
 	RTS
@@ -1476,13 +1476,13 @@ QDDATD	LDX	#3
 
 PRDATD	LDX	#0
 
-PRDATD2	LDA	ZPFC,X
+PRDATD2	LDA	MLMBYTE,X
 	LSR	
 	LSR	
 	LSR	
 	LSR	
 	JSR	HEXOUT
-	LDA	ZPFC,X
+	LDA	MLMBYTE,X
 
 ;------ Strip byte in A to lower nibble, print it as ASCII hex to display
 
@@ -1504,8 +1504,8 @@ ROLSTR	LDY	#4
 	ASL	
 	ASL	
 LFEE0	ROL	
-	ROL	ZPF9,X
-	ROL	ZPFA,X
+	ROL	CEGPTRLO,X
+	ROL	CEGPTRHI,X
 	DEY
 	BNE	LFEE0
 	RTS
@@ -1523,8 +1523,8 @@ CHKLOAD	LDA	LOADFLAG	; Check the LOAD FLAG
 ; [$FEF0] Print data at Current Address at $FE to display. Assume Y=0
 ;=================================================================
 
-PRBYTE	LDA	(ZPFE),Y
-	STA	ZPFC
+PRBYTE	LDA	(GENPTRLO),Y
+	STA	MLMBYTE
 	JMP	PRDATD
 
 
@@ -1532,10 +1532,10 @@ PRBYTE	LDA	(ZPFE),Y
 ; [$FEF7] Increment current address at FE
 ;=================================================================
 
-LFEF7	STA	(ZPFE),Y
-BUMP	INC	ZPFE
+LFEF7	STA	(GENPTRLO),Y
+BUMP	INC	GENPTRLO
 	BNE	LFEFF
-	INC	ZPFF
+	INC	GENPTRHI
 LFEFF	RTS
 
 
@@ -1700,10 +1700,10 @@ TRIQAD	JSR	TWPQAD
 	JSR	GRTOUT
 	LDX	#3
 	JSR	LF9B1
-	LDA	ZPFC
-	LDX	ZPFD
-	STA	ZPE4
-	STX	ZPE5
+	LDA	MLMBYTE
+	LDX	GENSTORE
+	STA	MLMSP
+	STX	MLMPCLO
 	RTS
 
 ;=================================================================
