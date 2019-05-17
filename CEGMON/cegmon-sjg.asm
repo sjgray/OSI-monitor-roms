@@ -271,7 +271,7 @@ BASE	= TOP+(ROWS-1)*WIDTH	; Start of Last Line of screen
 ; Set Output File
 ;=================================================================
 
-!TO "CEGMON-SJG011-SB-CWM-CTRL (2019-05-13).BIN",plain
+!TO "CEGMON-SJG012-SB-CWM-CTRL (2019-05-13).BIN",plain
 
 
 ;=================================================================

@@ -201,6 +201,7 @@ SWLOOP	LDA WINDOWS,X		; Get window parameter
 	STA SHADOW		; Save to Shadow Register
 	STA SCDREG		; Write to real SCD Register
 
+	JSR SCNCLR		; Clear the screen
 	JSR CURHOME		; Home the cursor
 	RTS
 
