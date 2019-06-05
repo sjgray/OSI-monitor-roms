@@ -116,7 +116,7 @@ ZP0D	= $0D			; $0D - Number of NULL's
 CHRCOUNT= $0E			; $0E - Terminal Character Count
 TERMWID	= $0F			; $0F - BASIC Terminal Width (not used)
 ;ZP10	= $10			; $10 - BASIC Terminal Width columns
-;ZP13	= $13			; $13-$5A - Input Buffer
+INBUF	= $13			; $13-$5A - Input Buffer
 
 MLMREGA	= $E0			; $E0 - MLM "A" Register
 MLMREGX	= $E1			; $E1 - MLM "X" Register
@@ -271,7 +271,7 @@ BASE	= TOP+(ROWS-1)*WIDTH	; Start of Last Line of screen
 ; Set Output File
 ;=================================================================
 
-!TO "CEGMON-SJG012-SB-CWM-CTRL (2019-05-13).BIN",plain
+!TO "SJGMON013-C1E-CWM-CTRL (2019-06-05).BIN",plain
 
 
 ;=================================================================
@@ -318,8 +318,10 @@ RUBOUT2	LDA	#32		; SPACE Character
 
 	SEC
 	LDA	LTEXT		; Position of cursor LO
+
 !IF OPTCUST=0 {	SBC #WIDTH }	; Subtract width of physical line (calculated constant)
 !IF OPTCUST=1 {	SBC PWIDTH }	; Subtract width of physical line (from memory)
+
 	STA	LTEXT		; Store it
 	LDA	LTEXT+1		; Get position of cursor HI
 	SBC	#0		; subtract the carry bit
@@ -1119,7 +1121,7 @@ DLOOP	DEX
 
 BANNER
 !IF OPTBANNR = 0 { !TEXT "CEGMON(C)1980 D/C/W/M?" }
-!IF OPTBANNR = 1 { !TEXT "SJGMON BETA-011 C/W/M?" }
+!IF OPTBANNR = 1 { !TEXT "SJGMON BETA-013 C/W/M?" }
 
 
 ;=================================================================

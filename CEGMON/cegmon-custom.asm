@@ -201,8 +201,13 @@ SWLOOP	LDA WINDOWS,X		; Get window parameter
 	STA SHADOW		; Save to Shadow Register
 	STA SCDREG		; Write to real SCD Register
 
+	LDA #0			; 
+	STA INBUF		; put it in buffer
+;	STA $01F8		; This seems to mimic $0200
+
 	JSR SCNCLR		; Clear the screen
 	JSR CURHOME		; Home the cursor
+	STX CURDIS
 	RTS
 
 ;*****************************************************************
