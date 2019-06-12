@@ -179,9 +179,6 @@ CMLOOP	STA $D400,X		; set colour memory page 1
 ; the GEGMON Windowing parameter table, 1 byte is for the screen
 ; width, and 1 for the SCD Control Register (ie: Screen width,
 ; colour, DAC).
-;
-; Format: WW=Window Width-1,TL=TopL,TH=TopH,BL=BaseL,BH=BaseH,
-;         SW=Screen Width,MD=SCD Mode
 
 WIN1	LDX #0			; Window #1
 	!BYTE $2C
@@ -213,6 +210,8 @@ SWLOOP	LDA WINDOWS,X		; Get window parameter
 ;*****************************************************************
 ; Windows Table
 ;*****************************************************************
+; Format: WW=Window Width-1,TL=TopL,TH=TopH,BL=BaseL,BH=BaseH,
+;         SW=Screen Width,MD=SCD Mode
 ; 
 ;             WW ,TL ,TH ,BL ,BH ,SW, MD
 WINDOWS	!BYTE $17,$85,$D0,$65,$D3,$20,$00	; OFFSET 0 > 24 columns

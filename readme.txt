@@ -30,4 +30,10 @@ WEMON    SD       N   P   P  N    N
 WEMON    C2       N   P   P  N    N
 
 
+BASIC
+=====
+
+CEGMON will not function correctly with US ROMs. You must use the UK-101 ROMs!
+UK-101 BASIC ROMs can be found in the /BASIC folder.
+
 Steve
