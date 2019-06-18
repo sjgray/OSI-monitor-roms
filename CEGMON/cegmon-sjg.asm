@@ -70,9 +70,23 @@ DISPLAY = 0	; 0 to 4      - Determines Video Display Parameters
 
 OPTEMACS= 0	; 0=No, 1=Yes - Enable EMACS-like Editing keys
 OPTBANNR= 1	; 0 to 1      - Banner
-OPTDISK = 0     ; 0=No, 1=Yes - Include Disk Bootstrap
-OPTCUST = 1	; 0=No, 1=SJG - Include Customized routines in place of DISK code?
-OPT630  = 1	; 0=NO, 1=Yes - Colour
+
+OPTINIT = 1	; Custom Init Code?
+;			0=No
+;			1=Yes
+
+OPTDISK = 2	; What goes in Disk Bootstrap area?
+;			0=Nothing
+;		  	1=Disk Bootstrap	(standard CEGMON bootstrap)
+;			2=Rev D Support Code 	(SJG)
+;			3=Monitor ROM Menu	(SJG)
+
+OPTWIDTH= 1	; Patch screen width calculations
+; 			0=No  - Hard coded per DISPLAY setting
+;			1=Yes - Use PWIDTH memory location in RAM (requires custom routine to initialize)
+
+OPTKEYS = 1	; 0=No, 1=YES - Patch for Custom Key Handler
+OPT630  = 1	; 0=No, 1=Yes - Colour
 OPTRGB  = 4	; 0 to 15     - Default RGB value for Colour
 
 ;=================================================================
@@ -197,7 +211,7 @@ USERLO  = $0233			; Lo byte of Monitor U command jump vector
 USERHI  = USERLO+1		; Hi byte of Monitor U command jump vector
 
 ;------------------------------ Custom Locations
-!IF OPTCUST=1 {
+!IF OPTWIDTH=1 {
 PWIDTH = $FD			; Pysical screen width
 SHADOW = $0234			; Shadow SCD Register (Screen,Colour,DAC)
 }
@@ -271,7 +285,7 @@ BASE	= TOP+(ROWS-1)*WIDTH	; Start of Last Line of screen
 ; Set Output File
 ;=================================================================
 
-!TO "SJGMON013-C1E-CWM-CTRL (2019-06-05).BIN",plain
+!TO "SJGMON015-C1E-CWM-CTRL (2019-06-17).BIN",plain
 
 
 ;=================================================================
@@ -319,8 +333,8 @@ RUBOUT2	LDA	#32		; SPACE Character
 	SEC
 	LDA	LTEXT		; Position of cursor LO
 
-!IF OPTCUST=0 {	SBC #WIDTH }	; Subtract width of physical line (calculated constant)
-!IF OPTCUST=1 {	SBC PWIDTH }	; Subtract width of physical line (from memory)
+!IF OPTWIDTH=0 {	SBC #WIDTH }	; Subtract width of physical line (calculated constant)
+!IF OPTWIDTH=1 {	SBC PWIDTH }	; Subtract width of physical line (from memory)
 
 	STA	LTEXT		; Store it
 	LDA	LTEXT+1		; Get position of cursor HI
@@ -396,7 +410,7 @@ KEYCHK	CMP	#$0A		; CTRL-J (Cursor Down)
 ; the keys INCLUDING Carriage RETURN and jump to STORKEY if the key
 ; is not recognized.
 
-!IF OPTCUST=0 {
+!IF OPTKEYS=0 {
 	CMP	#$0D		; CTRL-M (CARRIAGE RETURN)
 	BNE	STORKEY		; We are done testing for special KEYs
 } ELSE {
@@ -914,8 +928,8 @@ LFB77	LDX	#0
 LFB7C	CLC
 	LDA	CURSLO
 
-!IF OPTCUST=0 {	ADC #WIDTH }	; Subtract width of physical line (calculated constant)
-!IF OPTCUST=1 {	ADC PWIDTH }	; Subtract width of physical line (from memory)
+!IF OPTWIDTH=0 {	ADC #WIDTH }	; Subtract width of physical line (calculated constant)
+!IF OPTWIDTH=1 {	ADC PWIDTH }	; Subtract width of physical line (from memory)
 
 	STA	CURSLO
 	LDA	CURSLO+1
@@ -1018,14 +1032,13 @@ CTRLF	LDA	#$0D		; CARRIAGE RETURN
 ;=================================================================
 ; [$FC00] FLOPPY DISK BOOTSTRAP
 ;=================================================================
+; OPTDISK variable determines what code is placed here. 0=None.
 
 * = $FC00
 
-!IF OPTDISK=1 {
-	!SOURCE "cegmon-diskbootstrap.asm"		;Include DISK BOOTSTRAP
-} ELSE {
-	!IF OPTCUST=1 { !SOURCE "cegmon-custom.asm" }	;Include custom code!
-}
+!IF OPTDISK=1 { !SOURCE "cegmon-diskbootstrap.asm" }		; Include DISK BOOTSTRAP
+!IF OPTDISK=2 { !SOURCE "cegmon-revd.asm" }			; Include 600 REV D screen and keyboard code
+!IF OPTDISK=3 { !SOURCE "cegmon-rommenu.asm" }			; Include ROM selection Menu
 
 ;=================================================================
 ; [$FCA6] INIT ACIA
@@ -1121,7 +1134,7 @@ DLOOP	DEX
 
 BANNER
 !IF OPTBANNR = 0 { !TEXT "CEGMON(C)1980 D/C/W/M?" }
-!IF OPTBANNR = 1 { !TEXT "SJGMON BETA-013 C/W/M?" }
+!IF OPTBANNR = 1 { !TEXT "SJGMON BETA-014 C/W/M?" }
 
 
 ;=================================================================
@@ -1288,8 +1301,8 @@ SWAPMEM	LDA	(GENPTRLO),Y
 
 NEXTLINE	CLC
 
-!IF OPTCUST=0 {	LDA #WIDTH }	; Subtract width of physical line (calculated constant)
-!IF OPTCUST=1 {	LDA PWIDTH }	; Subtract width of physical line (from memory)
+!IF OPTWIDTH=0 {	LDA #WIDTH }	; Subtract width of physical line (calculated constant)
+!IF OPTWIDTH=1 {	LDA PWIDTH }	; Subtract width of physical line (from memory)
 
 	ADC	LSRC,X		; Add the current position LO
 	STA	LSRC,X		; Write it back
@@ -1335,8 +1348,8 @@ LFE22	LDX	SWIDTH
 CRSRUP	SEC
 	LDA	CURSLO
 
-!IF OPTCUST=0 {	SBC #WIDTH }	; Subtract width of physical line (calculated constant)
-!IF OPTCUST=1 {	SBC PWIDTH }	; Subtract width of physical line (from memory)
+!IF OPTWIDTH=0 {	SBC #WIDTH }	; Subtract width of physical line (calculated constant)
+!IF OPTWIDTH=1 {	SBC PWIDTH }	; Subtract width of physical line (from memory)
 
 	STA	CURSLO
 	LDA	CURSLO+1
@@ -1557,7 +1570,7 @@ RESET	CLD
 	TXS			; the stack
 	JSR	INITACIA	; Initialize the ACIA chip
 
-!IF OPTCUST=0 {
+!IF OPTINIT=0 {
 	JSR	INITMEM		; Initialize low memory
 } ELSE {
 	JSR	CUSTOM		; Run CUSTOM code in Disk Boot Area
