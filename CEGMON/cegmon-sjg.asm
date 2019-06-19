@@ -69,17 +69,17 @@ MACHINE = 0	; 0 to 2      - Determines Machine hardware config
 DISPLAY = 0	; 0 to 4      - Determines Video Display Parameters
 
 OPTEMACS= 0	; 0=No, 1=Yes - Enable EMACS-like Editing keys
-OPTBANNR= 3	; 0 to 3      - Banner#
 
 OPTINIT = 1	; Custom Init Code?
 ;			0=No
 ;			1=Yes
 
-OPTDISK = 3	; What goes in Disk Bootstrap area?
+OPTDISK = 4	; What goes in Disk Bootstrap area?
 ;			0=Nothing
 ;		  	1=Disk Bootstrap	(standard CEGMON bootstrap)
 ;			2=Rev D Support Code 	(SJG)
 ;			3=Monitor ROM Menu	(SJG)
+;			4=BASIC ROM Menu	(SJG)
 
 OPTWIDTH= 0	; Patch screen width calculations
 ; 			0=No  - Hard coded per DISPLAY setting
@@ -285,7 +285,7 @@ BASE	= TOP+(ROWS-1)*WIDTH	; Start of Last Line of screen
 ; Set Output File
 ;=================================================================
 
-!TO "CEGMON-MS (2019-06-18).BIN",plain
+!TO "CEGMON-BS (2019-06-19).BIN",plain
 
 
 ;=================================================================
@@ -1038,7 +1038,8 @@ CTRLF	LDA	#$0D		; CARRIAGE RETURN
 
 !IF OPTDISK=1 { !SOURCE "cegmon-diskbootstrap.asm" }		; Include DISK BOOTSTRAP
 !IF OPTDISK=2 { !SOURCE "cegmon-revd.asm" }			; Include 600 REV D screen and keyboard code
-!IF OPTDISK=3 { !SOURCE "cegmon-monselect.asm" }		; Include ROM selection Menu
+!IF OPTDISK=3 { !SOURCE "cegmon-monselect.asm" }		; Include Monitor ROM selection Menu
+!IF OPTDISK=4 { !SOURCE "cegmon-basselect.asm" }		; Include BASIC ROM selection Menu
 
 ;=================================================================
 ; [$FCA6] INIT ACIA
@@ -1137,7 +1138,7 @@ BANNER
 !IF OPTBANNR = 1 { !TEXT "CEGMON(C)1980 D/C/W/M?" }
 !IF OPTBANNR = 2 { !TEXT "SJGMON BETA-015 C/W/M?" }
 !IF OPTBANNR = 3 { !TEXT "CEGMON-MON-SEL  C/W/M?" }
-
+!IF OPTBANNR = 4 { !TEXT "CEGMON-BAS-SEL  C/W/M?" }
 
 ;=================================================================
 ; [$FD00] POLLED KEYBOARD INPUT ROUTINE
