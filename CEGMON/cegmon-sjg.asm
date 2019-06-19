@@ -69,24 +69,24 @@ MACHINE = 0	; 0 to 2      - Determines Machine hardware config
 DISPLAY = 0	; 0 to 4      - Determines Video Display Parameters
 
 OPTEMACS= 0	; 0=No, 1=Yes - Enable EMACS-like Editing keys
-OPTBANNR= 1	; 0 to 1      - Banner
+OPTBANNR= 3	; 0 to 3      - Banner#
 
 OPTINIT = 1	; Custom Init Code?
 ;			0=No
 ;			1=Yes
 
-OPTDISK = 2	; What goes in Disk Bootstrap area?
+OPTDISK = 3	; What goes in Disk Bootstrap area?
 ;			0=Nothing
 ;		  	1=Disk Bootstrap	(standard CEGMON bootstrap)
 ;			2=Rev D Support Code 	(SJG)
 ;			3=Monitor ROM Menu	(SJG)
 
-OPTWIDTH= 1	; Patch screen width calculations
+OPTWIDTH= 0	; Patch screen width calculations
 ; 			0=No  - Hard coded per DISPLAY setting
 ;			1=Yes - Use PWIDTH memory location in RAM (requires custom routine to initialize)
 
-OPTKEYS = 1	; 0=No, 1=YES - Patch for Custom Key Handler
-OPT630  = 1	; 0=No, 1=Yes - Colour
+OPTKEYS = 0	; 0=No, 1=YES - Patch for Custom Key Handler
+OPT630  = 0	; 0=No, 1=Yes - Colour
 OPTRGB  = 4	; 0 to 15     - Default RGB value for Colour
 
 ;=================================================================
@@ -285,7 +285,7 @@ BASE	= TOP+(ROWS-1)*WIDTH	; Start of Last Line of screen
 ; Set Output File
 ;=================================================================
 
-!TO "SJGMON015-C1E-CWM-CTRL (2019-06-17).BIN",plain
+!TO "CEGMON-MS (2019-06-18).BIN",plain
 
 
 ;=================================================================
@@ -1038,7 +1038,7 @@ CTRLF	LDA	#$0D		; CARRIAGE RETURN
 
 !IF OPTDISK=1 { !SOURCE "cegmon-diskbootstrap.asm" }		; Include DISK BOOTSTRAP
 !IF OPTDISK=2 { !SOURCE "cegmon-revd.asm" }			; Include 600 REV D screen and keyboard code
-!IF OPTDISK=3 { !SOURCE "cegmon-rommenu.asm" }			; Include ROM selection Menu
+!IF OPTDISK=3 { !SOURCE "cegmon-monselect.asm" }		; Include ROM selection Menu
 
 ;=================================================================
 ; [$FCA6] INIT ACIA
@@ -1133,8 +1133,10 @@ DLOOP	DEX
 ;=================================================================
 
 BANNER
-!IF OPTBANNR = 0 { !TEXT "CEGMON(C)1980 D/C/W/M?" }
-!IF OPTBANNR = 1 { !TEXT "SJGMON BETA-014 C/W/M?" }
+!IF OPTBANNR = 0 { !TEXT "CEGMON(C)1980   C/W/M?" }
+!IF OPTBANNR = 1 { !TEXT "CEGMON(C)1980 D/C/W/M?" }
+!IF OPTBANNR = 2 { !TEXT "SJGMON BETA-015 C/W/M?" }
+!IF OPTBANNR = 3 { !TEXT "CEGMON-MON-SEL  C/W/M?" }
 
 
 ;=================================================================
@@ -1398,7 +1400,7 @@ SCNCLR	LDY	#<SCREEN	; LO Byte of start of SCREEN
 SCLOOP	STA	(CEGPTRLO),Y	; Store it
 	INY			; Next position
 	BNE	SCLOOP		; Loop back for more
-	INC	CEGPTRHI		; Increment HI byte of address
+	INC	CEGPTRHI	; Increment HI byte of address
 	DEX			; Done one screen page
 	BNE	SCLOOP		; Are we done? No, loop back
 	RTS

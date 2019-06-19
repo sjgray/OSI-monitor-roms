@@ -1,5 +1,5 @@
 ;=================================================================
-; CEGMON MONITOR - CUSTOM CODE
+; CEGMON MONITOR - CUSTOM CODE - SUPPORT FOR 600 REV D
 ;=================================================================
 ; This is custom code that replaces the OSI DISK BOOTSTRAP (about
 ; 166 bytes). It is included when OPTDISK=0 and OPTCUST=1.
@@ -39,8 +39,9 @@
 ; 0 - Width. How many columns? (0=32, 1=64)
 ;     Note: This is physical width not actual characters per line
 ; 1 - Enable Colour? (0=No, 1=Yes)
-; 2 - N/A
-; 3 - DAC Enable? (0=No, 1=Yes)
+; 2 - BK0
+; 3 - BK1
+; 4 - DAC Enable? (0=No, 1=Yes)
 ;
 ;-----------------------------------------------------------------
 ; Additional memory usage:
