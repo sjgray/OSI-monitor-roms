@@ -46,6 +46,7 @@
 ; 2 - BK0
 ; 3 - BK1
 ; 4 - DAC Enable? (0=No, 1=Yes)
+; 5 - Not Used
 
 ;=================================================================
 ; CUSTOM code Entry Point
@@ -99,31 +100,36 @@ POM4	CMP	#'4'		; Is it "4"?
 ;=================================================================
 ; DO IT!
 ;=================================================================
-; Copy code to zero page
+; Copy code to zero page. Ensure that 'A' is not overwritten!
+
 POMSELECT
 	
 	LDX	#0
 JCLOOP	LDY	JUMPCODE,X	; Read byte from JUMPCODE table
 	STY	INBUF,X		; Store it in the keyboard buffer
 	INX
-	CPX	#8		; 8 bytes to copy
+	CPX	#6		; 6 bytes to copy (X=0 to 5)
 	BNE 	JCLOOP
-
-	STA	INBUF+1		; Store the selection after the LDA opcode
+				; 'A' should still have the BANK set here	
 	JMP	INBUF		; JUMP to the code - We never return
 	BRK
 
 ;=================================================================
 ; ROM Switching Code for Zero Page
 ;=================================================================
-
-JUMPCODE !BYTE $A2,$00		; LDA #$xx  - Load the selection (User choice replaces xx)
-	 !BYTE $8D,$00,$D8	; STA $D800 - Store it in the control register
+; We can not switch ROMs while running code in the ROM because the
+; processor will just continue running the new code in the same
+; location in the new ROM. It might be anywhere, but we need to make
+; sure we jump to the RESET vector to start the ROM properly
+ 
+JUMPCODE !BYTE $8D,$00,$D8	; STA $D800 - Store it in the control register
 	 !BYTE $6C,$FC,$FF	; JMP ($FFFC) - Cold Reset
 
 ;=================================================================
 ; Power-On Menu Text
 ;=================================================================
+; Text of the new menu. This requires CEGMON because it uses the
+; Clear Screen character. Note each line must end with <CR><LF>.
 
 POMENU	!BYTE $1A				; Clear Screen
 	!TEXT "MONITOR SELECT"

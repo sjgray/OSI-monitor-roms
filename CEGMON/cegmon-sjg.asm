@@ -69,12 +69,13 @@ MACHINE = 0	; 0 to 2      - Determines Machine hardware config
 DISPLAY = 0	; 0 to 4      - Determines Video Display Parameters
 
 OPTEMACS= 0	; 0=No, 1=Yes - Enable EMACS-like Editing keys
+OPTBANNR= 3	; 0 to 4      - Banner#
 
 OPTINIT = 1	; Custom Init Code?
 ;			0=No
 ;			1=Yes
 
-OPTDISK = 4	; What goes in Disk Bootstrap area?
+OPTDISK = 3	; What goes in Disk Bootstrap area?
 ;			0=Nothing
 ;		  	1=Disk Bootstrap	(standard CEGMON bootstrap)
 ;			2=Rev D Support Code 	(SJG)
@@ -285,7 +286,7 @@ BASE	= TOP+(ROWS-1)*WIDTH	; Start of Last Line of screen
 ; Set Output File
 ;=================================================================
 
-!TO "CEGMON-BS (2019-06-19).BIN",plain
+!TO "MONITOR.BIN",plain
 
 
 ;=================================================================
