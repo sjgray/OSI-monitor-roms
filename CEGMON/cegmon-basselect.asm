@@ -2,7 +2,7 @@
 ; CEGMON MONITOR - CUSTOM CODE - BASIC ROM SELECTION MENU
 ;=================================================================
 ; This is custom code that replaces the OSI DISK BOOTSTRAP (about
-; 166 bytes). It is included when OPTDISK=3.
+; 166 bytes). It is included when OPTDISK=4.
 ;
 ; There is ONE patch:
 ; INITIALIZATION:

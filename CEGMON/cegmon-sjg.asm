@@ -69,31 +69,42 @@ MACHINE = 0	; 0 to 2      - Determines Machine hardware config
 DISPLAY = 0	; 0 to 4      - Determines Video Display Parameters
 
 OPTEMACS= 0	; 0=No, 1=Yes - Enable EMACS-like Editing keys
-OPTBANNR= 3	; 0 to 4      - Banner#
+OPTBANNR= 5	; 0 to 5      - Banner#
 
 OPTINIT = 1	; Custom Init Code?
 ;			0=No
 ;			1=Yes
 
-OPTDISK = 3	; What goes in Disk Bootstrap area?
+OPTDISK = 0	; What goes in Disk Bootstrap area?
 ;			0=Nothing
 ;		  	1=Disk Bootstrap	(standard CEGMON bootstrap)
 ;			2=Rev D Support Code 	(SJG)
 ;			3=Monitor ROM Menu	(SJG)
 ;			4=BASIC ROM Menu	(SJG)
 
-OPTWIDTH= 0	; Patch screen width calculations
+OPTXROM = 2	; Put additional code in External ROM @ $8000-$9FFF
+;			Do not set both OPTDISK and OPTXROM at the same time!
+;			0=No
+;			1=Reserved
+;			2=Rev D Support (extended)
+
+OPTXJMP = 1	; Use a Jump table at the start of XROM
+;			0=No
+;			1=Yes
+
+OPTWIDTH= 1	; Patch screen width calculations
 ; 			0=No  - Hard coded per DISPLAY setting
 ;			1=Yes - Use PWIDTH memory location in RAM (requires custom routine to initialize)
 
-OPTKEYS = 0	; 0=No, 1=YES - Patch for Custom Key Handler
-OPT630  = 0	; 0=No, 1=Yes - Colour
+OPTKEYS = 1	; 0=No, 1=Yes - Patch for Custom Key Handler
+OPT630  = 1	; 0=No, 1=Yes - Colour
 OPTRGB  = 4	; 0 to 15     - Default RGB value for Colour
 
 ;=================================================================
 ; Symbols for ROM and IO space
 ;=================================================================
 
+XROM    = $8000			; EXTENDED ROM SPACE (BASIC EXTENSIONS etc)
 BASIC	= $A000			; BASIC ROM
 DISK	= $C000			; DISK CONTROLLER (PIA = +$00, ACIA = +$10)
 SCREEN	= $D000			; SCREEN RAM
@@ -282,11 +293,13 @@ TOP	= SCREEN+START		; "HOME" position
 BOT	= SCREEN+(SIZE+1)*1024	; End of physical screen RAM
 BASE	= TOP+(ROWS-1)*WIDTH	; Start of Last Line of screen
 
+
 ;=================================================================
 ; Set Output File
 ;=================================================================
 
-!TO "MONITOR.BIN",plain
+!IF OPTXROM=0 {!TO "MONITOR.BIN",plain }	; Generic filename
+!IF OPTXROM>0 {!TO "XMONITOR.BIN",plain }	; File must be split
 
 
 ;=================================================================
@@ -307,8 +320,28 @@ BASE	= TOP+(ROWS-1)*WIDTH	; Start of Last Line of screen
 
 
 ;=================================================================
-; [$F800] Start of Monitor ROM
+; [$8000] EXTERNAL ROM OPTION
 ;=================================================================
+; This option allows you to put additional monitor ROM functions
+; into a separate ROM. Typically this would be in the area from
+; $8000-$9FFF which is where BASIC extensions would reside
+; NOTE: When ACME assembles the code you will get ONE file with
+; all code starting from $8000 and ending at $FFFF. You will need
+; to manually split this file into two separate ROM binaries.
+
+!IF OPTXROM>0 {
+*=XROM
+	!IF OPTXROM=1 { !SOURCE "cegmon-xdiskbootstrap.asm" }		; Include DISK BOOTSTRAP
+	!IF OPTXROM=2 { !SOURCE "cegmon-xrevd.asm" }			; Include 600 REV D screen and keyboard code
+	!IF OPTXROM=3 { !SOURCE "cegmon-xmonselect.asm" }		; Include Monitor ROM selection Menu
+	!IF OPTXROM=4 { !SOURCE "cegmon-xbasselect.asm" }		; Include BASIC ROM selection Menu
+}
+
+
+;#################################################################
+; [$F800] Start of Monitor ROM
+;#################################################################
+
 ; CEGMON is a 2K Monitor ROM with start address of $F800.
 
 *=MONITOR
@@ -415,7 +448,8 @@ KEYCHK	CMP	#$0A		; CTRL-J (Cursor Down)
 	CMP	#$0D		; CTRL-M (CARRIAGE RETURN)
 	BNE	STORKEY		; We are done testing for special KEYs
 } ELSE {
-	JMP	CUSTKEYS	; Process our custom keys
+	!IF OPTXJMP=0 {	JMP CUSTKEYS }	; Process our custom keys
+	!IF OPTXJMP=1 {	JMP XCUSTKEYS }	; Process our custom keys
 }
 
 ;------ CARRIAGE RETURN
@@ -1140,6 +1174,8 @@ BANNER
 !IF OPTBANNR = 2 { !TEXT "SJGMON BETA-015 C/W/M?" }
 !IF OPTBANNR = 3 { !TEXT "CEGMON-MON-SEL  C/W/M?" }
 !IF OPTBANNR = 4 { !TEXT "CEGMON-BAS-SEL  C/W/M?" }
+!IF OPTBANNR = 5 { !TEXT "SJGXMON V1.00 D/C/W/M?" }
+
 
 ;=================================================================
 ; [$FD00] POLLED KEYBOARD INPUT ROUTINE
@@ -1297,6 +1333,7 @@ SWAPMEM	LDA	(GENPTRLO),Y
 	BCC	LFDDB
 	RTS
 
+
 ;=================================================================
 ; [$FDEE] Move to next line on screen
 ;=================================================================
@@ -1314,6 +1351,7 @@ NEXTLINE	CLC
 	ADC	LSRC+1,X	; Add the CARRY to update the
 	STA	LSRC+1,X	; current position HI byte
 	RTS
+
 
 ;=================================================================
 ; [$FE00] 65V MONITOR
@@ -1364,6 +1402,7 @@ CRSRUP	SEC
 LFE3C	STA	CURSLO+1
 	RTS
 
+
 ;=================================================================
 ; [$FE40] Init Low Memory / Storage and Vectors area
 ;=================================================================
@@ -1407,6 +1446,7 @@ SCLOOP	STA	(CEGPTRLO),Y	; Store it
 	BNE	SCLOOP		; Are we done? No, loop back
 	RTS
 
+
 ;=================================================================
 ; [$FE70] LOAD
 ;=================================================================
@@ -1418,6 +1458,7 @@ LFE76	STA	SVFLAG
 	PLA
 	RTS
 
+
 ;=================================================================
 ; [$FE7B] SAVE
 ;=================================================================
@@ -1426,6 +1467,7 @@ SAVEIT	PHA
 	LDA	#1		; SET SAVE FLAG
 	BNE	LFE76
 
+
 ;=================================================================
 ; [$FE80] INPUT CHAR FROM ACIA
 ;=================================================================
@@ -1433,6 +1475,7 @@ SAVEIT	PHA
 MCACIA	JSR	TAPIN
 	AND	#$7F		; CLEAR BIT 7
 	RTS
+
 
 ;=================================================================
 ; [$FE86] BIT SHIFTER - LEFT 
@@ -1446,6 +1489,7 @@ BITSHFT2
 	BCC	BITSHFT2
 	RTS
 
+
 ;=================================================================
 ; [$FE8D] CHECK LOAD 2
 ;=================================================================
@@ -1453,6 +1497,7 @@ BITSHFT2
 CHKLOAD2
 	JSR	CHKLOAD
 	JMP	JUMPOUT		; Print It
+
 
 ;=================================================================
 ; [$FE93] CONVERT ASCII-HEX CHAR TO BINARY
@@ -1473,6 +1518,7 @@ LFEA6	AND	#$F
 
 LFEA9	LDA	#$80
 	RTS
+
 
 ;=================================================================
 ; [$FEAC] Print address in FE, space, value in FC to display
@@ -1529,6 +1575,7 @@ LFEE0	ROL
 	BNE	LFEE0
 	RTS
 
+
 ;=================================================================
 ; [$FEE9] Check LOADFLAG
 ;=================================================================
@@ -1537,6 +1584,7 @@ LFEE0	ROL
 CHKLOAD	LDA	LOADFLAG	; Check the LOAD FLAG
 	BNE	MCACIA		; >0? Yes, do ACIA
 	JMP	GETKEY		; =0, do keyboard
+
 
 ;=================================================================
 ; [$FEF0] Print data at Current Address at $FE to display. Assume Y=0
@@ -1577,10 +1625,12 @@ RESET	CLD
 !IF OPTINIT=0 {
 	JSR	INITMEM		; Initialize low memory
 } ELSE {
-	JSR	CUSTOM		; Run CUSTOM code in Disk Boot Area
+	!IF OPTXJMP=0 {	JSR CUSTOM }	; Run CUSTOM code
+	!IF OPTXJMP=1 {	JSR XCUSTOM }	; Run CUSTOM code via Jump table
 }
 	JSR	SCNCLR		; Clear the screen
 	STY	CURDIS		; was: JSR CURHOME
+
 
 ;=================================================================
 ; [$FF10] Display Power-on Banner ("CEGMON D/C/W/M?")
@@ -1592,6 +1642,7 @@ BANLOOP	LDA	BANNER,Y	; Prompt
 	INY			; next character
 	CPY	#$16		; Are we done?
 	BNE	BANLOOP		; No, loop for more
+
 
 ;=================================================================
 ; [$FF1A] Get User's BOOT option
@@ -1660,6 +1711,7 @@ MODIFY1	LDX	CURDIS
 MODIFY2	LDA	#$5F
 	BNE	SCOUT2
 
+
 ;=================================================================
 ; [$FF8C] SCOUT - Print character at cursor position
 ;=================================================================
@@ -1668,6 +1720,7 @@ SCOUT	LDA	OLDCHR
 SCOUT2	LDX	CURDIS
 	JMP	XSTA
 
+
 ;=================================================================
 ; [$FF95] OLD SCREEN
 ;=================================================================
@@ -1675,6 +1728,7 @@ SCOUT2	LDX	CURDIS
 
 OLDSCR	JSR	BROMCRTC
 	JMP	OUTPUT2
+
 
 ;=================================================================
 ; [$FF9B] OUTPUT
@@ -1725,6 +1779,7 @@ TRIQAD	JSR	TWPQAD
 	STX	MLMPCLO
 	RTS
 
+
 ;=================================================================
 ; [$FFD1] HOME CURSOR - COPY WINDOW TOP to CURSOR POINTER
 ;=================================================================
@@ -1737,6 +1792,7 @@ CHLOOP	LDA	SLTOP-1,X	; From Window Parameters
 	BNE	CHLOOP		; go back for more
 	RTS
 
+
 ;=================================================================
 ; [$FFE0] TABLE for BASIC ROM SCREEN PARAMETERS
 ;=================================================================
@@ -1748,6 +1804,7 @@ LFFE0	!BYTE	<BASE		; CURSOR START
 LFFE1	!BYTE	LWIDTH		; LINE LENGTH - 1
 LFFE2	!BYTE	SIZE		; SCREEN SIZE (0=1K 1=2K)
 
+
 ;=================================================================
 ; [$FFE3] Print a PERIOD
 ;=================================================================
@@ -1755,6 +1812,7 @@ LFFE2	!BYTE	SIZE		; SCREEN SIZE (0=1K 1=2K)
 PERIOD	LDA	#'.'
 	JSR	JUMPOUT		; Print It
 	JMP	QDDATD
+
 
 ;=================================================================
 ; [$FFEB] JUMP TABLE
@@ -1765,6 +1823,7 @@ JUMPOUT	JMP	(OUTVEC)	; OUTPUT FF9B
 JUMPCC	JMP	(CCVEC)		; CTRL-C FB94
 JUMPLD	JMP	(LDVEC)		; LOAD   FE70
 JUMPSV	JMP	(SVVEC)		; SAVE   FE7B
+
 
 ;=================================================================
 ; [$FFFA] 6502 RESET, IRQ, and NMI Vectors
