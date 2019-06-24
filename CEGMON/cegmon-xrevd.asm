@@ -1,8 +1,7 @@
 ;=================================================================
 ; CEGMON MONITOR - CUSTOM CODE - SUPPORT FOR 600 REV D
 ;=================================================================
-; This is custom code that replaces the OSI DISK BOOTSTRAP (about
-; 166 bytes). It is included when OPTDISK=0 and OPTCUST=1.
+; This is custom code for external ROM Space.
 ;
 ; There are TWO patches:
 ; INITIALIZATION:
@@ -14,12 +13,8 @@
 ;   The printing routines are patched to JMP to CUSTKEYS at the
 ;   point where the CR check is done. You should also do a CR check
 ;   in your code. When you are done you must JMP back to the
-;   appropriate spot depending on if you want the key processed
-;   when you are done.
-;
-; NOTES:
-;   This code takes up almost the entire space that the Disk Bootstrap
-;   previously used.
+;   appropriate spot depending on if you want the key processed or
+;   not, when you are done.
 ;
 ;-----------------------------------------------------------------
 ; NEW FEATURES
@@ -30,7 +25,12 @@
 ; CTRL-V......Composite Video Mode (black and white)
 ; CTRL-R......RGB Video Mode
 ; CTRL-U......Clear Colour Memory to whatever colour is at $D400.
-;
+; New:
+; CTRL-X......Toggle 24/48 (32/64) Column Mode
+; CTRL-I......Increment first Colour then fill Colour RAM
+; CTRL-Y......Fill Screen with character at first byte
+; CTRL-T......Increment first Character then Fill Character RAM
+
 ;-----------------------------------------------------------------
 ; "SCD" Register
 ;-----------------------------------------------------------------
@@ -42,6 +42,7 @@
 ; 2 - BK0
 ; 3 - BK1
 ; 4 - DAC Enable? (0=No, 1=Yes)
+; 5 - User-Defined
 ;
 ;-----------------------------------------------------------------
 ; Additional memory usage:
@@ -56,7 +57,6 @@
 ; START OF CUSTOM CODE
 ;#################################################################
 ; Start of code. 
-;#################################################################
 
 ;*****************************************************************
 ; Jump Table
@@ -98,8 +98,11 @@ CUSTOM
 
 CUSTKEYS
 	CMP #$0D		; Is it CR? (CARRIAGE RETURN)
-	BNE CCSKIP1		; No, skip ahead
+	BNE CCRANGE		; No, skip ahead
 	JMP DOCR		; Yes, do it
+
+CCRANGE CMP #$1F		; Is it in the range we need to check?
+	BPL CCDONE		; No, it's higher, so exit
 
 CCSKIP1 CMP #$12		; Is it CTRL-R? (RGB Mode)
 	BEQ CTRLR		; Yes, do it
@@ -110,30 +113,38 @@ CCSKIP2 CMP #$16		; Is it CTRL-V? (VIDEO Mode - B/W)
 CCSKIP3 CMP #$15		; Is it CTRL-U? (COLOUR CLEAR)
 	BEQ CTRLU		; Yes, do it
 
-CCSKIP4 CMP #$17		; Is it CTRL-W (Wide Video Mode - 24/32 columns)
+CCSKIP4 CMP #$17		; Is it CTRL-W? (Wide Video Mode - 24/32 columns)
 	BEQ CTRLW		; Yes, do it
 
-CCSKIP5 CMP #$0E		; Is it CTRL-N (Narrow Video Mode - 48/64 columns)
+CCSKIP5 CMP #$0E		; Is it CTRL-N? (Narrow Video Mode - 48/64 columns)
 	BEQ CTRLN		; Yes, do it
 
-;	CMP #$16		; Is it CTRL-X (Toggle Width)
-;	BEQ CTRLX		; Yes, Do it
+CCSKIP6	CMP #$16		; Is it CTRL-X? (Toggle Width)
+	BEQ CTRLX		; Yes, Do it
+
+CCSKIP7	CMP #$09		; Is it CTRL-I? (Increment Colour)
+	BEQ CTRLI		; Yes, Do it
+
+CCSKIP8 CMP #$19		; Is it CTRL-Y? (Fill screen)
+	BEQ CTRLY
+
+CCSKIP9 CMP #$14		; Is it CTRL-T? (Increment then Fill screen)
+	BEQ CTRLT
+
+;*****************************************************************
+; Exit and pass KEY on to CEGMON
+;*****************************************************************
 
 CCDONE	JMP STORKEY		; We didnt find our custom key. Pass it on. We're done!
 
 
 ;*****************************************************************
-; CTRL-W - Set 24/32 Column Mode (WIDE Characters)
+; CTRL-X - Toggle 24/48 Column Mode
 ;*****************************************************************
-; Removed due to lack of space
-;
-;CTRLX	LDA SHADOW
-;	AND #%00000001
-;	BEQ XWIDE
-;	JSR WIN1
-;	JMP RUBOUT2
-;XWIDE	JSR WIN2
-;	JMP RUBOUT2
+
+CTRLX	LDA SHADOW
+	AND #%00000001		; mask off all bits but 0
+	BEQ CTRLN		; If bit0 is 0 then do Narrow
 
 ;*****************************************************************
 ; CTRL-W - Set 24/32 Column Mode (WIDE Characters)
@@ -177,7 +188,28 @@ SETSCD	STA SHADOW		; Update the shadow register
 ; CTRL-U - Clear Colour
 ;*****************************************************************
 
-CTRLU	JSR CLEARS		; Clear to same as first bye of colour ram
+CTRLU	JSR CLEARS		; Clear Colour with value from first byte of Colour RAM
+	JMP PULLYXA		; We're done
+
+;*****************************************************************
+; CTRL-I - Increment then Clear Colour
+;*****************************************************************
+
+CTRLI	JSR CLEARI		; Increment Colour then Clear Colour RAM
+	JMP PULLYXA		; We're done
+
+;*****************************************************************
+; CTRL-Y - Fill Screen
+;*****************************************************************
+
+CTRLY	JSR FILLS		; Clear Screen with value from first byte of Screen RAM
+	JMP PULLYXA		; We're done
+
+;*****************************************************************
+; CTRL-T - Increment then Fill Screen
+;*****************************************************************
+
+CTRLT	JSR FILLI		; Increment Character then Fill Screen RAM
 	JMP PULLYXA		; We're done
 
 ;*****************************************************************
@@ -185,18 +217,51 @@ CTRLU	JSR CLEARS		; Clear to same as first bye of colour ram
 ;*****************************************************************
 ; CLEARS - Clears Colour Memory to Same as top left
 ; CLEARC - Clears Colour Memory to colour in A register
+; CLEARI - Increment top left then Clear Colour Memory
 
-CLEARS  LDA $D400		; Read colour from first colour location
+CLEARI	INC COLOUR		; Increment the colour
+CLEARS  LDA COLOUR		; Read colour from first colour location
 CLEARC	LDX #0			; Entry here with colour in A
 
-CMLOOP	STA $D400,X		; set colour memory page 1
-	STA $D500,X		; set colour memory page 2
-	STA $D600,X		; set colour memory page 3
-	STA $D700,X		; set colour memory page 4
+CMLOOP	STA COLOUR,X		; set Colour memory page 1
+	STA COLOUR+$100,X	; set Colour memory page 2
+	STA COLOUR+$200,X	; set Colour memory page 3
+	STA COLOUR+$300,X	; set colour memory page 4
+
+!IF SIZE=1 {
+	STA COLOUR+$400,X	; set Colour memory page 5 (2K Video systems)
+	STA COLOUR+$500,X	; set Colour memory page 6
+	STA COLOUR+$600,X	; set Colour memory page 7
+	STA COLOUR+$700,X	; set Colour memory page 8
+}
 	INX			; Next index position
 	BNE CMLOOP		; Loop back for more
 	RTS			; We're done!
 
+;*****************************************************************
+; Clear Screen Memory
+;*****************************************************************
+; FILLS - Clears Screen Memory to Same as top left
+; FILLC - Clears Screen Memory to colour in A register
+; FILLI - Increment top left then Clear Screen Memory
+
+FILLI	INC SCREEN		; Increment the colour
+FILLS	LDA SCREEN		; Read colour from first colour location
+FILLC	LDX #0			; Entry here with colour in A
+
+FCLOOP	STA SCREEN,X		; set Screen memory page 1
+	STA SCREEN+$100,X	; set Screen memory page 2
+	STA SCREEN+$200,X	; set Screen memory page 3
+	STA SCREEN+$300,X	; set Screen memory page 4
+!IF SIZE=1 {
+	STA SCREEN+$400,X	; set Screen memory page 5 (2K Video systems)
+	STA SCREEN+$500,X	; set Screen memory page 6
+	STA SCREEN+$600,X	; set Screen memory page 7
+	STA SCREEN+$700,X	; set Screen memory page 8
+}
+	INX			; Next index position
+	BNE FCLOOP		; Loop back for more
+	RTS			; We're done!
 
 ;*****************************************************************
 ; Set CEGMON Window

@@ -5,7 +5,7 @@
 
 BOOTSTRP
 	JSR	BOOT-OFFSET
-	JMP	(ZPFD)
+	JMP	(GENSTORE)
 
 	JSR	BOOT-OFFSET
 	JMP	NEWMON
@@ -58,22 +58,22 @@ LFC5A	LDA	DISK			; Wait until the index hole
 					; 8 Bits, Even Parity, 1 Stop Bit, /1 clock
 	STA	DISK+$10		;
 	JSR	DISKIN-OFFSET		; Get a byte from the disk
-	STA	ZPFE			; Store as load address hi·and save it in X
+	STA	GENPTRLO			; Store as load address hi·and save it in X
 	TAX				;
 	JSR	DISKIN-OFFSET		; Get another byte
-	STA	ZPFD			; Store as load address low
+	STA	GENSTORE			; Store as load address low
 	JSR	DISKIN-OFFSET		; Get a third byte
-	STA	ZPFF			; Store it as /I of pages to load
+	STA	GENPTRHI			; Store it as /I of pages to load
 	LDY	#0			; Clear index register
 
 LFC7B	JSR	DISKIN-OFFSET		; Get a data byte
-	STA	(ZPFD),Y		; Save it at current location
+	STA	(GENSTORE),Y		; Save it at current location
 	INY				; Bump index
 	BNE	LFC7B			; Loop until a page is full
-	INC	ZPFE			; When a page is full, incr addr hi
-	DEC	ZPFF			; decr the # of pages to load
+	INC	GENPTRLO			; When a page is full, incr addr hi
+	DEC	GENPTRHI			; decr the # of pages to load
 	BNE	LFC7B			; Loop until all pages are done
-	STX	ZPFE			; Then, restore addr hi
+	STX	GENPTRLO			; Then, restore addr hi
 	LDA	#$FF			; Lift the head
 	STA	DISK+2			;
 	RTS				; Done! Page Zero is loaded
@@ -83,7 +83,7 @@ LFC7B	JSR	DISKIN-OFFSET		; Get a data byte
 WAIT	LDY	#$F8			; 2   - Get a 248, decimal
 LFC93	DEY				; 2   - Inner loop - wait 1240
 	BNE	LFC93			; 2/3 - machine cycles
-	EOR	ZPFF,X			; 4   - waste 4 cycles
+	EOR	GENPTRHI,X			; 4   - waste 4 cycles
 	DEX				; 2   - Wait X * 1250 cycles
 	BNE	WAIT			; 2/3 - Loop until done
 	RTS				
