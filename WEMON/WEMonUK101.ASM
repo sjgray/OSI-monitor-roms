@@ -1765,8 +1765,7 @@ F963: 9D 41 02  STA REGMAP,X             ;Register map
 F966: 4C 01 F9  JMP L_F901              
 ;
 PUTREG:
-F969: A0 0C     LDY #$0C		; Original
-;     A0 8C	LDY #$8C		; Alternate ##########################                
+F969: A0 0C     LDY #$0C                
 F96B: A2 00     LDX #$00                
 ;
 L_F96D:
@@ -1816,14 +1815,12 @@ L_F9A4:
 F9A4: 99 00 D0  STA VIDRAM,Y             ;Video Character RAM
 F9A7: 60        RTS                     
 ;
-
+;
+TABLE3:
 ;
 TABLE4:
-F9A8:           !TEXT "PC      FR    SP    ACC    XR    YR ",$00 ;MCM header
-
-TABLE3:
-F9CE:     !TEXT $0F,$11,$17,$1D,$24,$2A,$30,$00 ; Original 
-;         !TEXT $8F,$91,$97,$9D,$A4,$AA,$B0,$00	; Alternate ##################
+F9A8:           !TEXT "PC      FR    SP    ACC    XR    YR ",$00	;MCM header
+F9CD:		!TEXT $0F,$11,$17,$1D,"$*0",$00				;MCM header
  
 ;
 GETPAR:
@@ -1929,7 +1926,7 @@ FA70: 20 E5 F7  JSR MONPRINT
 FA73: 20 04 F8  JSR CRLF                
 FA76: F8        SED                     
 FA77: 18        CLC                     
-FA78: AD DE 00  LDA ZP_DE                ;Zero Page $DE
+FA78: AD DE 00  LDA ZP_00DE              ;Zero Page $DE #####################
 FA7B: 69 01     ADC #$01                
 FA7D: 85 DE     STA ZP_DE                ;Zero Page $DE
 FA7F: 90 06     BCC L_FA87              
@@ -2489,7 +2486,7 @@ FDDF:           !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
 FDE7:           !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
 FDEF:           !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
 FDF7:           !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-FDFF:           !BYTE $AA               ;filler
+FDFF:           !BYTE $AA                             ;filler
  
 ;================================================================================
 ; Polled Keyboard Entry Point
