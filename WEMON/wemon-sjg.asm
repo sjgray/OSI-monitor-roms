@@ -10,6 +10,11 @@
 ; commented and enhanced by Steve J. Gray, Jun 24, 2019.
 ; Formatted for ACME assembler.
 ;
+; I have two versions of the ROM. The "original" was sent to me and
+; I submitted it to OSIWEB.ORG. The "alternate" was supplied by
+; Mark Spankus. There are only a few differences, which are marked
+; in the source (to be integrated).
+;
 ;=================================================================
 ; Features
 ;=================================================================
@@ -311,10 +316,13 @@ CLSLOOP:
 ;================================================================================
 
 HOCUR:
-          LDA #$D0     
+          LDA #$D0		; Screen HOME HI address ###############
           STA CURPSH		; Cursor Position HI byte
           STA ZP_F7		; Zero Page $F7
-          LDY #$4B     
+
+          LDY #$4B		; Screen HOME LO address - Original ROM ################
+;         LDY #$CB		; Screen HOME LO address - Alternate ROM ###############
+
           STY CURPSL		; Cursor Position LO byte
           BNE L_F10E   
 
@@ -1603,33 +1611,31 @@ HEXCHECK:
           BPL L_F7E2   
           SEC          
           SBC #$07     
-;
 L_F7DF:
           AND #$0F     
           RTS          
-;
-;
+
 L_F7E2:
           LDA #$80     
           RTS          
-;
-;
+
+;================================================================================
+; [$F7E5] Monitor Print
+;================================================================================
+
 MONPRINT:
           LDX #$03     
-;
 L_F7E7:
           JSR NXTDIG   
           CPX #$02     
           BNE L_F7F2   
           JSR SPC1     
           DEX          
-;
 L_F7F2:
           DEX          
           BPL L_F7E7   
           RTS          
-;
-;
+
 NXTDIG:
           LDA ZP_FA,X		; Zero Page $FA
           LSR          
@@ -1639,23 +1645,24 @@ NXTDIG:
           JSR HEXIT    
           LDA ZP_FA,X		; Zero Page $FA
           JMP HEXIT    
-;
 CRLF:
           LDA #$0D     
           JSR L_FF69   
           LDA #$0A     
           JMP L_FF69   
-;
 SPC2:
           LDA #$20     
           JSR L_FF69   
-;
 SPC1:
           LDA #$20     
-;
 L_F815:
           JMP L_FF69   
-;
+
+
+;================================================================================
+; [$F818] HEXIT
+;================================================================================
+
 HEXIT:
           AND #$0F     
           ORA #$30     
@@ -1663,17 +1670,14 @@ HEXIT:
           BMI L_F823   
           CLC          
           ADC #$07     
-;
 L_F823:
           BNE L_F815   
-;
 ROTCHR:
           LDY #$04     
           ASL          
           ASL          
           ASL          
           ASL          
-;
 L_F82B:
           ROL          
           ROL ZP_FA,X		; Zero Page $FA
@@ -1681,16 +1685,17 @@ L_F82B:
           DEY          
           BNE L_F82B   
           RTS          
-;
-;
+
+;================================================================================
+; [$Fxxx] MINPUT
+;================================================================================
+
 MINPUT:
           LDA ZP_E0		; Zero Page $E0
           BEQ L_F83B   
           JMP L_FFC2   
-;
 L_F83B:
           JMP KBRD     
-;
 FCHAR:
           LDA #$FD     
           STA KEYBD		; Keyboard Port
@@ -1892,7 +1897,8 @@ L_F956:
           JMP L_F901   
 
 PUTREG:
-          LDY #$0C     
+          LDY #$0C		; Original ROM ##########################
+;         LDY #$8C		; Alternate ROM #########################
           LDX #$00     
 
 L_F96D:
@@ -1950,11 +1956,12 @@ TABLE4:
           !TEXT "PC      FR    SP    ACC    XR    YR ",$00     ;MCM header
 
 ;=================================================================
-; [$F9CD] Monitor Data Table
+; [$F9CD] ??? Table
 ;=================================================================
 
 TABLE3:
-          !TEXT $0F,$11,$17,$1D,"$*0",$00     ;MCM header
+          !TEXT $0F,$11,$17,$1D,$24,$2A,$30,$00 ; Original ROM ###################
+;         !TEXT $8F,$91,$97,$9D,$A4,$AA,$B0,$00	; Alternate ROM ##################
  
 
 ;=================================================================
