@@ -1,6 +1,6 @@
-;=================================================================
+;================================================================================
 ; WEMON MONITOR REVERSE ENGINEERED SOURCE CODE
-;=================================================================
+;================================================================================
 ;
 ; WEMON - "The Definitive Monitor" (C)WATFORD ELECTRONICS
 ;
@@ -15,9 +15,9 @@
 ; Mark Spankus. There are only a few differences, which are marked
 ; in the source (to be integrated).
 ;
-;=================================================================
+;================================================================================
 ; Features
-;=================================================================
+;================================================================================
 ;
 ; - Full-screen editor similar to Commodore PET and later CBM machines.
 ; - Enhanced Tape Loading and Saving
@@ -69,14 +69,14 @@
 ; G ssss ............ Execute at s=start address
 ; F xx-ssss-eeee .... Fill Block
 ;
-;=================================================================
+;================================================================================
 ; CONFIGURE MACHINE AND DISPLAY TYPE
-;=================================================================
+;================================================================================
 ; To be added later
 
-;=================================================================
+;================================================================================
 ; Symbols for ROM and IO space
-;=================================================================
+;================================================================================
 ; Assume Superboard Memory Map
 
 XROM    = $8000			; EXTENDED ROM SPACE (BASIC EXTENSIONS etc)
@@ -91,9 +91,9 @@ ACIA	= $E000			; SERIAL PORT (MC6850 ACIA) FOR C1/Superboard
 MONITOR = $F000   		; MONITOR ROM
 
 
-;=================================================================
+;================================================================================
 ; BASIC ROM ROUTINES
-;=================================================================
+;================================================================================
 ; ROM BASIC provides ACIA I/O for the C2/4, which has the ACIA at
 ; $FC00.  The C1 must reproduce these in the monitor for the ACIA
 ; at $F000.
@@ -117,9 +117,9 @@ BROMBCF7 = BASIC + $1CF7	; ?
 ; BROMAOUT = BASIC + $1F15	; OUTPUT CHAR TO ACIA (C2/C4)
 ; BROMAINI = BASIC + $1F22	; INIT ACIA (C2/C4)
 
-;=================================================================
+;================================================================================
 ; Symbols for Zero Page Storage
-;=================================================================
+;================================================================================
 
 ZP_13 = $13			; Zero Page $13
 ZP_0013 = $0013			; Zero Page $13 ############### 2 bytes
@@ -159,16 +159,16 @@ ZP_FD = $FD			; Zero Page $FD
 ZP_FE = $FE			; Zero Page $FE
 ZP_FF = $FF			; Zero Page $FF
 
-;=================================================================
+;================================================================================
 ; Symbols for Stack Page
-;=================================================================
+;================================================================================
 
 STACK  = $0100			; Stack 
 
 
-;=================================================================
+;================================================================================
 ; Symbols for Monitor ROM Storage
-;=================================================================
+;================================================================================
 
 CURPSL  = $0200			; Cursor Position LO byte
 CURCHR  = $0201			; Character under cursor
@@ -222,9 +222,9 @@ PRFLAG  = $024E			; Print on/off Flag
 TPFlag  = $024F			; Tape on/off Flag
 
 
-;=================================================================
+;================================================================================
 ; Set Output File
-;=================================================================
+;================================================================================
 
 !TO "MONITOR.BIN",plain		; Generic filename
 
@@ -237,7 +237,7 @@ TPFlag  = $024F			; Tape on/off Flag
 *=MONITOR
 
 ;================================================================================
-; [$F000] Cold Start Entry Point
+; [$F000] RESET - Cold Start Entry Point
 ;================================================================================
 
 RESET:
@@ -267,23 +267,34 @@ RESET:
           JSR PRINTINIT
           LDY #$09     
 
+;================================================================================
+; [$F041] VECLD - Load Vectors
+;================================================================================
+
 VECLD:
-          LDA TABLE5,Y 
-          STA INVEC,Y		; Input Vector
+          LDA VECTABLE,Y	; Read Vector Table entry
+          STA INVEC,Y		; Put it in the Vector table
           DEY          
-          BPL VECLD    
-          LDA #$00     
+          BPL VECLD
+    
+          LDA #$00     		; Clear out some zero page locations
           STA ZP_F6		; Zero Page $F6
           STA ZP_E0		; Zero Page $E0
           STA ZP_D6		; Zero Page $D6
-          JSR ACIAINIT 
-          LDA #$A1     
-          STA CURSYM		; Cursor Symbol
-          JSR CLS      
+
+          JSR ACIAINIT		; Initialize the ACIA
+
+          LDA #$A1		; Solid block character
+          STA CURSYM		; Set the Cursor Symbol
+          JSR CLS		; Clear the screen
+
+;================================================================================
+; [$F062] RECALL - Print the Power-On Banner
+;================================================================================
 
 RECALL:
-          LDX #$00     
-          JSR MSGOUT   
+          LDX #$00     		; Offset of Power-on Banner
+          JSR MSGOUT		; Print the message
 
 
 ;================================================================================
@@ -291,8 +302,9 @@ RECALL:
 ;================================================================================
 
 MENULOOP:
-          JSR KBRD     
-          AND #$5F     
+          JSR KBRD		; Get a key from Keyboard
+          AND #$5F		; Strip off lowercase bits
+
           CMP #$4D		; Is it "M"? (Monitor)
           BNE L_F075   
           LDA #$F0     
@@ -324,7 +336,7 @@ L_F08A:
           JMP MENULOOP 
 
 ;================================================================================
-; [$F094] Initialize ACIA
+; [$F094] ACIAINIT - Initialize the ACIA
 ;================================================================================
 ;
 
@@ -337,8 +349,9 @@ ACIAINIT:
           RTS          
 
 ;================================================================================
-; [$F0A2] CLEARSCREEN
+; [$F0A2] CLS - Clear the Screen
 ;================================================================================
+; Currently clears 1K of Video RAM
 
 CLS:
           LDA #$60     
@@ -355,7 +368,7 @@ CLSLOOP:
 
 
 ;================================================================================
-; [$F0B8] Home the Cursor
+; [$F0B8] HOCUR - Home the Cursor
 ;================================================================================
 
 HOCUR:
@@ -369,6 +382,10 @@ HOCUR:
           STY CURPSL		; Cursor Position LO byte
           BNE L_F10E   
 
+;================================================================================
+; [$F0B8] SETCUR - Set the Cursor
+;================================================================================
+
 SETCUR:
           LDA #$00     
           STA ZP_F6		; Zero Page $F6
@@ -379,7 +396,7 @@ SETCUR:
 
 
 ;================================================================================
-; [$F0D3] Write character to screen
+; [$F0D3] WRITESCRN - Write character to screen
 ;================================================================================
 
 WRITESCRN:
@@ -411,7 +428,7 @@ WRITE:
 
 
 ;================================================================================
-; [$F0F4] Perform <CR>
+; [$F0F4] CR - Perform Carriage Return <CR>
 ;================================================================================
 
 CR:
@@ -485,7 +502,7 @@ L_F170:
 
 
 ;================================================================================
-; [$F171] Perform Line Feed
+; [$F171] LNFD - Perform Line Feed
 ;================================================================================
 
 LNFD:
@@ -518,7 +535,7 @@ L_F196:
           BEQ L_F1F1   
 
 ;================================================================================
-; [$F19A] Perform Vertical TAB
+; [$F19A] VTAB - Perform Vertical TAB
 ;================================================================================
 
 VTAB:
@@ -562,10 +579,15 @@ L_F1CE:
 ;================================================================================
 ; [$F1D5] BELL
 ;================================================================================
+; For Series II Superboard with added circuitry.
+; This appears to have been removed.
 
 BELL:
           RTS          
 
+;================================================================================
+; [$F1D6] ???
+;================================================================================
 
 L_F1D6:
           STA ZP_EC		; Zero Page $EC
@@ -583,6 +605,10 @@ L_F1EA:
           LDA ZP_EC		; Zero Page $EC
           RTS          
 
+;================================================================================
+; [$F1EF] PUT1 - Put Character in Accumulator
+;================================================================================
+; Puts character in .A to screen memory pointed to by $F6/$F7 and .Y
 PUT1:
           STA (ZP_F6),Y		; Zero Page $F6
 
@@ -621,8 +647,9 @@ L_F214:
 
 
 ;================================================================================
-; [$F21A] Move to End of Line
+; [$F21A] EOL - Move to End of Line
 ;================================================================================
+; Tests Y Register for equality to the low byte of the end of and screen line.
 
 EOL:
           PHA          
@@ -632,6 +659,11 @@ EOL:
           PLA          
           RTS          
 
+;================================================================================
+; [$F222] NEWLN - 
+;================================================================================
+; Sets Y register to first printing position-1 on present line. Adjusts $F7 if required
+
 NEWLN:
           JSR START    
           JSR L_F188   
@@ -639,8 +671,9 @@ NEWLN:
 
 
 ;================================================================================
-; [$F229] Put Cursor On screen
+; [$F229] PUTCUR - Put Cursor On screen
 ;================================================================================
+; Saves screen character as cursor position in CURCHR. Updates CURPSL/CURPSH.
 
 PUTCUR:
           LDA (ZP_F6),Y		; Zero Page $F6
@@ -661,8 +694,9 @@ L_F237:
           JMP L_FF6C   
 
 ;================================================================================
-; [$F23F] SOP
+; [$F23F] SOP - Test for Start of Page
 ;================================================================================
+; Tests $F6, $F7 and .Y for start of page. Returns carry clear if true.
 
 SOP:
           CPY #$4B     
@@ -681,8 +715,9 @@ SOL:
           RTS          
 
 ;================================================================================
-; [$F250] OLD Line
+; [$F250] OLDLN - Last Position of Previous line
 ;================================================================================
+; Puts .Y equal to last printing position on previous line. Adjusts $F7 if required
 
 OLDLN:
           PHA          
@@ -697,8 +732,9 @@ L_F25A:
           RTS          
 
 ;================================================================================
-; [$F25C] Start
+; [$F25C] START - Start of Current Line
 ;================================================================================
+; Puts .Y equal to start-1 of current line.
 
 START:
           PHA          
@@ -711,8 +747,10 @@ START:
 
 
 ;================================================================================
-; [$F265] Scroll
+; [$F265] SCROLL - Scrolls whole screen up
 ;================================================================================
+; Scroll whole screen up 1 line. Delays if SPACEBAR is pressed. Returns with
+; cursor position updated.
 
 SCROLL:
           JSR L_F28A   
@@ -808,12 +846,15 @@ L_F2DD:
           AND #$C0     
           TAY          
           LDA #$60     
-;
 L_F2E9:
           STA (ZP_F8),Y		; Zero Page $F8
           DEC ZP_F8		; Zero Page $F8
           BPL L_F2E9   
           RTS          
+
+;================================================================================
+; [$F2F0] ???
+;================================================================================
 
 L_F2F0:
           LDA ERRORFL		; FF = Run error
@@ -838,7 +879,7 @@ L_F30B:
           TXA          
           PHA          
 L_F30F:
-          JSR KBRD     
+          JSR KBRD		; Get a key from Keyboard     
           CMP #$0D     
           BEQ L_F32D   
           CMP #$0E     
@@ -897,8 +938,11 @@ L_F35C:
 
 
 ;================================================================================
-; [$F369] Keyboard Scanner
+; [$F369] KBRD - Keyboard Scanner
 ;================================================================================
+; Main entry point of keyboard routine. Any keyboard controlled function command
+; while in the wait loop will be executed. Characters will not be echoed to the
+; screen. No registers need to be saved.
 
 KBRD:
           TYA          
@@ -1001,7 +1045,7 @@ L_F405:
           PLA          
           BIT SKBFLAG		; FF next character returns BASIC command
           BPL L_F41B   
-          JMP L_F517   
+          JMP HOTKEYS   
 L_F41B:
           LDX #$96     
           CMP MEM0216		; Low Mem $0216
@@ -1019,29 +1063,29 @@ L_F424:
           BNE L_F449   
           BCC L_F43E   
           LDA MEM0215		; Low Mem $0215 (Last keypress?)
-          BNE L_F49C   
+          BNE KEYEXIT   
 L_F43E:
           LDA MEM0215		; Low Mem $0215 (Last keypress?)
           CMP #$41     
-          BCC L_F49C   
+          BCC KEYEXIT   
           ORA #$20     
-          BNE L_F49C   
+          BNE KEYEXIT   
 L_F449:
           LDA MEM0215		; Low Mem $0215 (Last keypress?)
           CMP #$41     
-          BCS L_F49C   
+          BCS KEYEXIT   
           CMP #$20     
-          BEQ L_F49C   
+          BEQ KEYEXIT   
           CMP #$0D     
-          BEQ L_F49C   
+          BEQ KEYEXIT   
           CMP #$30     
-          BEQ L_F49C   
+          BEQ KEYEXIT   
           BCS L_F462   
           ORA #$10     
-          BNE L_F49C   
+          BNE KEYEXIT   
 L_F462:
           AND #$2F     
-          BNE L_F49C   
+          BNE KEYEXIT   
 L_F466:
           LDA MEM0215		; Low Mem $0215 (Last keypress?)
           AND #$1F     
@@ -1068,10 +1112,10 @@ L_F490:
           JMP KEYLOOP  
 L_F493:
           CMP #$05     
-          BNE L_F49C   
+          BNE KEYEXIT   
           JSR EXTEND   
           BMI L_F490   
-L_F49C:
+KEYEXIT:
           STA MEM0213		; Low Mem $0213
           PLA          
           TAX          
@@ -1082,21 +1126,26 @@ L_F49C:
 
 
 ;================================================================================
-; [$F4A7] Extend
+; [$F4A7] EXTEND - Modifies the CHRGET Routine
 ;================================================================================
 
 EXTEND:
           LDX #$03     
-L_F4A9:
+EXTLOOP:
           LDA TABLE1,X 
           STA ZP_C5,X		; Zero Page $C5
           DEX          
-          BPL L_F4A9   
+          BPL EXTLOOP   
           RTS          
 
 TABLE1:
           JMP L_F4B6   
-          NOP          
+          NOP
+
+;================================================================================
+; [$F4B6] ???
+;================================================================================
+
 L_F4B6:
           PHP          
           PHA          
@@ -1106,9 +1155,9 @@ L_F4B6:
           BNE L_F4CD   
           PLA          
           PHA          
-          CMP #$41     
+          CMP #$41		; Is it "A"?
           BCC L_F4CD   
-          CMP #$5B     
+          CMP #$5B		; Is it "Z"+1?
           BCS L_F4CD   
           JSR EXTVEC		; BASIC command external Vector
 L_F4CD:
@@ -1118,9 +1167,11 @@ L_F4CD:
 
 
 ;================================================================================
-; [$F4D2] Print Error Line
+; [$F4D2] PRERRL - Print Error Line
 ;================================================================================
-;
+; Prints the BASIC line whose number (in binary fixed point) is in $87,$88.
+; A Warm Start should be executed following this routine.
+
 PRERRL:
           LDA ZP_88		; Zero Page $88
           LDY ZP_87		; Zero Page $87
@@ -1151,14 +1202,15 @@ L_F4F9:
 
 
 ;================================================================================
-; [$F501] Toggle Quote Mode
+; [$F501] TQUOTE - Toggle Quote Mode
 ;================================================================================
+; Toggles quotes flag and adjusts cursor symbol.
 
 TQUOTE:
           PHA          
           LDA #$FF     
-          EOR QUOFLAG		; Quotes Flag
-          STA QUOFLAG		; Quotes Flag
+          EOR QUOFLAG		; Toggle Quotes Flag
+          STA QUOFLAG		; Save it back
           BPL L_F510   
           LDA #$17		; <NE Arrow> symbol Cursor
           BNE L_F512   
@@ -1169,44 +1221,51 @@ L_F512:
           PLA          
           RTS          
 
-L_F517:
-          LDA TABLE7,Y 
+;================================================================================
+; [$F517] HOTKEYS - Process Keyboard BASIC TOKEN Hotkeys
+;================================================================================
+
+HOTKEYS:
+          LDA KEYTOKEN,Y	; Get Token offset
           TAY          
           TSX          
           LDA STACK+5,X		; Stack offset 5
           TAX          
-L_F520:
-          LDA BROMA084,Y              
-          PHA          
-          AND #$7F     
-          JSR L_FF69   
-          PLA          
-          BMI L_F532   
+HKLOOP:
+          LDA BROMA084,Y        ; Get TOKEN from BASIC
+          PHA			; Push it on the stack
+          AND #$7F		; Strip of HI bit
+          JSR CHAROUT		; Output character in accumulator
+          PLA			; Pull it back
+          BMI L_F532		; Was HI bit set? Yes, exit loop   
           STA ZP_13,X		; Zero Page $13
           INY          
           INX          
-          BNE L_F520   
+          BNE HKLOOP
+   
 L_F532:
-          AND #$7F     
+          AND #$7F		; Strip off HI bit
           STA ZP_13,X		; Zero Page $13
           INX          
-          CMP #$24     
-          BNE L_F543   
-          LDA #$28     
-          JSR L_FF69   
+          CMP #$24		; Is it "$"?     
+          BNE L_F543		; No, skip ahead   
+          LDA #$28     		; Also print out the "("
+          JSR CHAROUT		; Output character in accumulator   
           STA ZP_13,X		; Zero Page $13
           INX          
 L_F543:
           TXA          
           TSX          
           STA STACK+5,X		; Stack offset 5
-          LDA #$00     
+          LDA #$00		; Turn off the flag
           STA SKBFLAG		; FF next character returns BASIC command
-          JMP KEYLOOP  
+          JMP KEYLOOP		; Go back for more characters
 
 ;================================================================================
-; [$F550] Open
+; [$F550] OPEN - Inserts blank line or single SPACE
 ;================================================================================
+; Opens a blank line or cursor one position. Cursor position (or position of line
+; to be opened should be in CURPSL and CURPSH.
 
 OPEN:
           JSR SETCUR   
@@ -1224,6 +1283,13 @@ L_F55F:
           LDA #$60     
           STA CURCHR		; Character under cursor
           BNE L_F55E   
+
+;================================================================================
+; [$F56B] GETST - Get Start of Line
+;================================================================================
+; Returns with absolute address-1 of start of a data line, regardless of whether
+; it is less than or more than one line. Value is in $F8,$F9.
+
 GETST:
           JSR START    
           LDA (ZP_F6),Y		; Zero Page $F6
@@ -1306,8 +1372,12 @@ L_F5E2:
           RTS          
 
 ;================================================================================
-; [$F5E7] Insert
+; [$F5E7] INSERT - Insert SPACE
 ;================================================================================
+; Opens a 1 character space in a line of text at cursor position. All text at and
+; to the right of the cursor is moved right 1 space. Will not open a line to a
+; length greater than 72 characters. Scrolls up if on the bottom line and if it
+; is in the middle of the screen and a new line is required.
 
 INSERT:
           BIT INSFLAG		; Insert Flag
@@ -1426,8 +1496,11 @@ L_F69C:
           RTS          
 
 ;================================================================================
-; [$F6AB] Delete
+; [$F6AB] DELETE - Delete SPACE
 ;================================================================================
+; Does the opposite of INSERT. Moves character under cursor and all characters
+; (up to 2 lines) left 1 space, overwriting character to the LEFT of cursor. Will
+; not delete past the start of the line.
 
 DELETE:
           JSR L_F0E7   
@@ -1488,8 +1561,10 @@ L_F708:
           JMP L_F22B   
 
 ;================================================================================
-; [$F70D] Delay
+; [$F70D] DELAY - Delay Y milliseconds.
 ;================================================================================
+; Delay routine that gives approximately 1ms delay for every unit value in Y
+; register on entry. Y should not be ZERO on entry or delay will be 255ms.
 
 DELAY:
           LDX #$C8     
@@ -1502,8 +1577,10 @@ L_F70F:
 
 
 ;================================================================================
-; [$F716] Invert Keyboard Data and Write to Keyboard Port
+; [$F716] INVWR - Invert Keyboard Data and Write to Keyboard Port
 ;================================================================================
+; Invert contents of accumulator and stores in keyboard latch.
+; Accumulator is preserved.
 
 INVWR:
           EOR #$FF     
@@ -1512,8 +1589,10 @@ INVWR:
           RTS          
 
 ;================================================================================
-; [$F71E] Read Keyboard COLUMN
+; [$F71E] RDCOL - Read Keyboard COLUMN
 ;================================================================================
+; Reads keyboard port and returns with inverted value read in X. Accumulator is
+; preserved.
 
 RDCOL:
           PHA          
@@ -1526,13 +1605,19 @@ RDCOL:
 
 
 ;================================================================================
-; [$F727] Read Keyboard Port and Invert Data
+; [$F727] RDCOLA - Read Keyboard Port and Invert Data
 ;================================================================================
+; Reads keyboard and port. Inverts value.
 
 RDCOLA:
           LDA KEYBD		; Keyboard Port
           EOR #$FF     
           RTS          
+
+;================================================================================
+; [$F72D] TSW - Inverts Tape Control State
+;================================================================================
+; Inverts state of tape control. Leaves TPFL se if tape now on, clear if tape off.
 
 TSW:
           BIT TPFlag		; Tape on/off Flag
@@ -1552,8 +1637,9 @@ L_F745:
           RTS          
 
 ;================================================================================
-; [$F746] FINTAPE
+; [$F746] FINTAPE - Turns off Tape
 ;================================================================================
+; Turns off Tape, clears all tape related flags LOAD, SAVE, TPFL, MCLOAD.
 
 FINTAPE:
           LDA #$00     
@@ -1573,23 +1659,31 @@ L_F758:
           RTS          
 
 ;================================================================================
-; [$F75F] TAPE OUT
+; [$F75F] TAPOUT - Checks SPACEBAR to end.
 ;================================================================================
+; Checks if SPACEBAR is down, if so calls FINTAPE then returns. If no, passes to
+; TAP1.
 
 TAPOUT:
           PHA          
           JSR FCHAR    
           BEQ L_F773   
           PLA          
+;================================================================================
+; [$F766] TAP1 - Tape Output
+;================================================================================
+; Puts a character in the accumulator to the ACIA TX buffer when it is empty,
+; then returns.
+
 TAP1:
-          PHA          
+          PHA			; Save the character
 L_F767:
           LDA ACIA		; Relocated ACIA
           LSR          
           LSR          
-          BCC L_F767   
-          PLA          
-          STA ACIA+1		; Relocated ACIA offset 1
+          BCC L_F767   		; Is it busy? Yes, loop back and wait more
+          PLA          		; No, get the character
+          STA ACIA+1		; Send it to ACIA
           RTS          
 
 L_F773:
@@ -1599,48 +1693,47 @@ L_F773:
 
 
 ;=================================================================
-; [$F778] TABLE
+; [$F778] Vectors Table
 ;=================================================================
 
-TABLE5:
-          !BYTE $BA,$FF,$D3,$F0,$9A,$FF,$8B,$FF ;unknown
-          !BYTE $96,$FF	;unknown
+VECTABLE:
+          !BYTE $BA,$FF,$D3,$F0,$9A,$FF,$8B,$FF 
+          !BYTE $96,$FF
 
  
 ;================================================================================
-; [$F782] Show Power On Banner
+; [$F782] MSGOUT - Put Message on Screen
 ;================================================================================
-;
+; Puts a message on the screen. Put message offset in X. Messages must be
+; terminated with a $00.
+
 MSGOUT:
           LDA BANNER,X 
 L_F785:
           BEQ L_F78D   
-          JSR L_FF69   
+          JSR CHAROUT		; Output character in accumulator   
           INX          
           BNE MSGOUT   
 L_F78D:   RTS          
 
 
-;=================================================================
-; [$F78E] POWER ON BANNER TEXT
-;=================================================================
-
-BANNER:
-          !TEXT "WEMON (C)1981.",$0D,$0A,"M/C/W/D/U ?",$00 ;Power-on Prompt
- 
-
 ;================================================================================
-; [$F7AA] Messages
+; [$F78E] BANNER - Power on banner and other messages
 ;================================================================================
-;
-L_F7AA:   !TEXT $0D,$0A,"FOUND ",$00    ;Tape 'found '
-L_F7B3:   !TEXT $0D,$0A,"LOADING",$00   ;Tape 'Loading' message
-L_F7BD:   !TEXT $0D,$0A,"SAVING ",$00   ;Tape 'Saving' message
-L_F7C7:   !TEXT "LIST",$00              ;List message
+; These messages are printed using the MSGOUT routine. Y register is set to the
+; offset from 'BANNER'. Messages must end with $00.
+
+BANNER: !TEXT "WEMON (C)1981.",$0D,$0A	; Power on Banner and
+	!TEXT "M/C/W/D/U ?",$00		;   menu Prompt
+
+MSG2    !TEXT $0D,$0A,"FOUND ",$00    	; Tape 'found '  message
+MSG3    !TEXT $0D,$0A,"LOADING",$00   	; Tape 'Loading' message
+MSG4    !TEXT $0D,$0A,"SAVING ",$00   	; Tape 'Saving'  message
+MSG5    !TEXT "LIST",$00              	; 'List' message
 
  
 ;================================================================================
-; [$F7CC] Check for valid HEX digit
+; [$F7CC] HEXCHECK - Check for valid HEX digit
 ;================================================================================
 ; Converts HEX character in .A to HEX digit.
 ; Returns with Hex character in .A or $80 if non-HEX.
@@ -1665,7 +1758,7 @@ L_F7E2:
           RTS          
 
 ;================================================================================
-; [$F7E5] Monitor Print
+; [$F7E5] MONPRINT - Monitor Print
 ;================================================================================
 ; Prints out in ASCII the contents of FD,FC,FA as FD,FC space space FA
 
@@ -1683,7 +1776,7 @@ L_F7F2:
           RTS          
 
 ;================================================================================
-; [$Fxxx] NEXT DIG
+; [$F7F6] NXTDIG - Prints out HEX
 ;================================================================================
 ; Prints out HEX, a byte pointed to by X relative to FA.
 
@@ -1698,28 +1791,28 @@ NXTDIG:
           JMP HEXIT    
 
 ;================================================================================
-; [$Fxxx] CRLF
+; [$F804] CRLF - Print a <CR> and <LF>
 ;================================================================================
-; Executes a Carriage Return followed by a Line Feed
+; Executes a Carriage Return followed by a Line Feed.
 
 CRLF:
           LDA #$0D     
-          JSR L_FF69   
+          JSR CHAROUT		; Output character in accumulator   
           LDA #$0A     
-          JMP L_FF69   
+          JMP CHAROUT   
 
 ;================================================================================
-; [$Fxxx] SPC2 and SPC1
+; [$F80E] SPC2 and SPC1
 ;================================================================================
 ; Prints 2 spaces, or 1 space.
 
 SPC2:
           LDA #$20     
-          JSR L_FF69   
+          JSR CHAROUT		; Output character in accumulator   
 SPC1:
           LDA #$20     
 L_F815:
-          JMP L_FF69   
+          JMP CHAROUT   
 
 
 ;================================================================================
@@ -1738,11 +1831,12 @@ HEXIT:
 L_F823:
           BNE L_F815
 
+
 ;================================================================================
-; [$Fxxx] ROTATE CHARACTER
+; [$F825] ROTCHR - Rotate Characters
 ;================================================================================
-; Rotates the lower nibble (4 LSB's) of .A and the two adjacent bytes pointed to
-; by X, relative to FA, left by 4 positions. X and Y are corrupted.
+; Rotates the lower nibble (4 LSB's) of .A and the two adjacent bytes (pointed to
+; by X, relative to FA), left by 4 positions. X and Y are corrupted.
    
 ROTCHR:
           LDY #$04     
@@ -1759,7 +1853,7 @@ L_F82B:
           RTS          
 
 ;================================================================================
-; [$Fxxx] MINPUT
+; [$F834] MINPUT - Get Monitor Input (Keyboard or ACIA)
 ;================================================================================
 ; Get Monitor input either from the keyboard if MC Load Flag ($E0) is clear, or
 ; from ACIA if $E0 is $FF.
@@ -1772,7 +1866,7 @@ L_F83B:
           JMP KBRD     
 
 ;================================================================================
-; [$Fxxx] FCHAR
+; [$Fxxx] FCHAR - Check SPACEBAR down
 ;================================================================================
 ; Tests the keyboard for SPACEBAR down.
 ; Returns with X=0 if not down, or Z=0 if down.
@@ -1820,42 +1914,44 @@ L_F858:
           STA REGMAP		; Register map
           TSX          
           STX MEM0244		; Low Mem $0244
-          LDX #$28     
+
+          LDX #$28		; Set Stack pointer
           TXS          
-          CLD          
-          JSR CLS      
+          CLD			; Clear decimal mode
+          JSR CLS		; Clear the screen      
 ;
 L_F87A:
           JSR PUTREG   
-          JSR HOCUR    
+          JSR HOCUR		; Home the cursor
           JSR L_F2DD   
 ;
 L_F883:
-          JSR KBRD     
+          JSR KBRD		; Get a key from Keyboard     
           STA ZP_EF		; Zero Page $EF
-          JSR L_FF69   
+          JSR CHAROUT		; Output character in accumulator   
           JSR SPC1     
           LDA ZP_EF		; Zero Page $EF
-          CMP #$52     
+ 
+          CMP #$52     		; Is it "R"?
           BNE L_F89D   
-          JSR HOCUR    
+          JSR HOCUR		; Home the cursor    
           JSR L_F8F5   
           JMP L_F901   
 ;
 L_F89D:
-          CMP #$53     
+          CMP #$53		; Is it "S"?
           BNE L_F8A4   
           JMP L_FCBF   
 ;
 L_F8A4:
-          CMP #$4C     
+          CMP #$4C     		; Is it "L"?
           BNE L_F8AB   
           JMP L_FCFD   
 ;
 L_F8AB:
-          JSR GETPAR   
+          JSR GETPAR		; Get parameter
           LDA ZP_EF		; Zero Page $EF
-          CMP #$4D     
+          CMP #$4D     		; Is it "M"?
           BNE L_F8CB   
           LDA ZP_E1		; Zero Page $E1
           BEQ L_F8C5   
@@ -1872,40 +1968,40 @@ L_F8C5:
           JMP L_FE07   
 ;
 L_F8CB:
-          CMP #$46     
+          CMP #$46		; Is it "F"? (Fill block)
           BNE L_F8D2   
           JMP L_FAA0   
 ;
 L_F8D2:
-          CMP #$42     
+          CMP #$42		; Is it "B"? (Block)
           BNE L_F8D9   
           JMP L_FAEC   
 ;
 L_F8D9:
-          CMP #$56     
+          CMP #$56		; Is it "V"? (Verify/View Block)
           BNE L_F8E0   
           JMP L_FA21   
 ;
 L_F8E0:
-          CMP #$47     
+          CMP #$47		; Is it "G"? (Go)
           BNE L_F8E7   
           JMP L_FABA   
 ;
 L_F8E7:
           JSR USERVEC		; User Vector
 ;
-L_F8EA:
+MONCRLF:
           JSR CRLF     		; Print a <CR><LF>     
           JMP L_F883   
 ;
 L_F8F0:
-          LDA #$0D     
-          JSR L_FF69   
+          LDA #$0D		; <CR> character     
+          JSR CHAROUT		; Output character in accumulator   
 ;
 L_F8F5:
           JSR L_F2DD   
           LDA ZP_EF		; Zero Page $EF
-          JSR L_FF69   
+          JSR CHAROUT		; Output character in accumulator   
           JSR SPC1     
           RTS          
 ;
@@ -1917,21 +2013,21 @@ L_F901:
 L_F905:
           JSR L_FA1B   
           BNE L_F910   
-          JSR L_FF69   
+          JSR CHAROUT		; Output character in accumulator   
           JMP L_F87A   
 ;
 L_F910:
-          CMP #$30     
+          CMP #$30		; Is it "0"?
           BCS L_F926   
-          CMP #$20     
+          CMP #$20     		; Is it <SPACE>?
           BEQ L_F920   
-          CMP #$08     
+          CMP #$08     		;
           BEQ L_F920   
           CMP #$18     
           BNE L_F923   
 ;
 L_F920:
-          JSR L_FF69   
+          JSR CHAROUT		; Output character in accumulator   
 ;
 L_F923:
           JMP L_F901   
@@ -1960,7 +2056,7 @@ L_F940:
  
           PHA          
           LDA ZP_E9		; Zero Page $E9
-          JSR L_FF69   
+          JSR CHAROUT		; Output character in accumulator   
           PLA          
           LDX ZP_EA		; Zero Page $EA
           BNE L_F956   
@@ -1977,22 +2073,24 @@ L_F956:
           STA REGMAP,X		; Register map
           JMP L_F901   
 
-;=================================================================
-; [$Fxxx] PUT REGISTER
-;=================================================================
+;================================================================================
+; [$F969] PUTREG - Put REGISTERS Header to Top of Screen
+;================================================================================
 ; Writes the contents of the register map across the top of the screen
+; Set Y register to offset from Top of Screen.
 
 PUTREG:
           LDY #$0C		; Original ROM ##########################
 ;         LDY #$8C		; Alternate ROM #########################
-          LDX #$00     
+
+          LDX #$00
 L_F96D:
           LDA TABLE4,X 
           BEQ L_F979   
           STA SCREEN,Y		; Video Character RAM
           INY          
           INX          
-          BNE L_F96D   
+          BNE L_F96D		; Loop for More
 L_F979:
           LDX #$00     
 L_F97B:
@@ -2029,25 +2127,25 @@ L_F9A4:
           RTS          
 
 
-;=================================================================
-; [$F9A8] Monitor Header Table
-;=================================================================
+;================================================================================
+; [$F9A8] Monitor RESISTERS Header
+;================================================================================
 
 TABLE4:
           !TEXT "PC      FR    SP    ACC    XR    YR ",$00     ;MCM header
 
-;=================================================================
-; [$F9CD] ??? Table
-;=================================================================
+;================================================================================
+; [$F9CD] ?? Monitor Table
+;================================================================================
 
-TABLE3:	;        O    Q  W   ]   $   *   0 ????????????????
+TABLE3:
           !TEXT $0F,$11,$17,$1D,$24,$2A,$30,$00 ; Original ROM ###################
 ;         !TEXT $8F,$91,$97,$9D,$A4,$AA,$B0,$00	; Alternate ROM ##################
  
 
-;=================================================================
+;================================================================================
 ; [$F9D5] GETPAR - Get Parameter
-;=================================================================
+;================================================================================
 ; Gets up to 3 16-bit parameters into
 ;    FA,FB,LSB,MSB,P1
 ;    FC,FF,LSB,MSB,P2
@@ -2079,13 +2177,13 @@ L_F9F1:
           BMI L_F9EC   
           PHA          
           LDA ZP_E4		; Zero Page $E4
-          JSR L_FF69   
+          JSR CHAROUT		; Output character in accumulator   
           PLA          
           LDX ZP_E3		; Zero Page $E3
           JSR ROTCHR   
           BEQ L_F9EC   
 L_FA0A:
-          JSR L_FF69   
+          JSR CHAROUT		; Output character in accumulator   
           LDA ZP_E1		; Zero Page $E1
           ASL          
           STA ZP_E3		; Zero Page $E3
@@ -2097,7 +2195,7 @@ L_FA1A:
           RTS          
 
 L_FA1B:
-          JSR KBRD     
+          JSR KBRD		; Get a key from Keyboard     
           CMP #$0D     
           RTS          
 
@@ -2130,7 +2228,7 @@ L_FA43:
           BPL L_FA43   
           BMI L_FA30   
 L_FA5C:
-          JMP L_F8EA   
+          JMP MONCRLF   
 L_FA5F:
           JSR CRLF     		; Print a <CR><LF>     
           LDX #$00     
@@ -2165,7 +2263,7 @@ L_FA97:
           JSR NXTDIG   
           DEX          
           BPL L_FA97   
-          JMP L_F8EA   
+          JMP MONCRLF   
 L_FAA0:
           LDA ZP_E1		; Zero Page $E1
           CMP #$03     
@@ -2178,7 +2276,7 @@ L_FAAC:
           STA (ZP_FC),Y		; Zero Page $FC
           JSR L_FF33   
           BCC L_FAAC   
-          JMP L_F8EA   
+          JMP MONCRLF   
 L_FABA:
           LDA ZP_E1		; Zero Page $E1
           BEQ L_FAC8   
@@ -2227,7 +2325,7 @@ L_FB10:
           JSR L_FF33   
           BCC L_FB06   
 L_FB15:
-          JMP L_F8EA   
+          JMP MONCRLF   
 L_FB18:
           JSR ADJPTR   
           LDX #$00     
@@ -2295,9 +2393,9 @@ L_FB73:
           BNE L_FB5E   
 
 ;================================================================================
-; [$Fxxx] DELAY5S
+; [$FB7B] DELAY5S - Delay 5 seconds
 ;================================================================================
-; Delays approx 5 seconds. Corrupts A,Y,X
+; Delays approx 5 seconds. Corrupts A,Y,X.
 
 DELAY5S:
           LDA #$14     
@@ -2309,9 +2407,13 @@ L_FB7F:
           BNE L_FB7F   
           RTS          
 
+;================================================================================
+; [$FB89] ???
+;================================================================================
+
 L_FB89:
           JSR GETNAM   
-L_FB8B:				; Incorrect Targe of jump to middle of above ######
+L_FB8B:				; Incorrect Target of jump to middle of above ######
 L_FB8C:
           JSR L_FBD6   
           LDX ZP_E2		; Zero Page $E2
@@ -2370,16 +2472,18 @@ L_FBD6:
 L_FBE1:
           JSR L_FC13   
           JSR GETNAM1  
-          LDX #$1C     
-          JSR MSGOUT   
+          LDX #$1C		; Offset of message "FOUND"   
+          JSR MSGOUT		; Print the message   
+
           JSR L_FF23   
           LDX ZP_E2		; Zero Page $E2
           BEQ L_FBF8   
           JSR COMPNAME 
           BCS L_FBE1   
 L_FBF8:
-          LDX #$25     
-          JSR MSGOUT   
+          LDX #$25		; Offset of message "LOADING" 
+          JSR MSGOUT		; Print the message
+
           STA ZP_E0		; Zero Page $E0
           JSR CRLF     		; Print a <CR><LF>     
           RTS          
@@ -2411,7 +2515,7 @@ L_FC1F:
           RTS          
 
 ;================================================================================
-; [$FC2A] Compare Name
+; [$FC2A] COMPNAME - Compare Names
 ;================================================================================
 ; Compares two 6-character strings in NAM1 and NAM2.
 ; Returns carry clear if equal, or carry set if not equal.
@@ -2451,9 +2555,9 @@ L_FC41:
           BCC L_FC41   
           RTS          
 
-;=================================================================
+;================================================================================
 ; [$FC4D] ???
-;=================================================================
+;================================================================================
 
 L_FC4D:
           JSR L_FC8B   
@@ -2468,7 +2572,7 @@ L_FC51:
 L_FC5F:
           CMP #$20     
           PHP          
-          JSR L_FF69   
+          JSR CHAROUT		; Output character in accumulator   
           PLP          
           BCC L_FC51   
           STA NAM1,X		; Filename to search for or to write
@@ -2479,18 +2583,18 @@ L_FC70:
           STX ZP_E2		; Zero Page $E2
           RTS          
 
-;=================================================================
+;================================================================================
 ; [$FC73] PUTNAM - Put Name
-;=================================================================
+;================================================================================
 ; Puts contents of NAM2 out to tape.
 
 PUTNAM:
-          LDX #$2F     
-          JSR MSGOUT   
+          LDX #$2F		; Offset of message "SAVING"     
+          JSR MSGOUT   		; Print the message
           TAX          
 L_FC79:
           LDA NAM1,X		; Filename to search for or to write
-          JSR L_FF69   
+          JSR CHAROUT		; Output character in accumulator   
           JSR TAP1     
           INX          
           CPX #$06     
@@ -2508,9 +2612,9 @@ L_FC8F:
           RTS          
 
 
-;=================================================================
-; [$Fxxx] GETNAM - Get Name
-;=================================================================
+;================================================================================
+; [$FC96] GETNAM - Get Name
+;================================================================================
 ; Gets 6 characters from keyboard and puts in NAM1.
 ; On return $E2=Number of characters upto but not including RETURN.
 ; Zeros NAM1 and NAM2 first. Only accept characters $30 to $5A.
@@ -2535,9 +2639,9 @@ L_FCAB:
           RTS          
 
 
-;=================================================================
+;================================================================================
 ; [$FCB2] ???
-;=================================================================
+;================================================================================
 
 L_FCB2:
           JSR L_F732   
@@ -2546,14 +2650,14 @@ L_FCB2:
           JSR PUTNAM   
           RTS          
 
-;=================================================================
+;================================================================================
 ; [$FCBF] ???
-;=================================================================
+;================================================================================
 
 L_FCBF:
           JSR L_FC4D   
           JSR SPC1     
-          JSR GETPAR   
+          JSR GETPAR		; Get parameter   
           CPX #$02     
           BEQ L_FCDF   
           JSR L_F8F0   
@@ -2591,7 +2695,7 @@ L_FCEF:
 L_FCFD:
           JSR L_FC4D   
           JSR SPC1     
-          JSR GETPAR   
+          JSR GETPAR		; Get parameter   
           DEC ZP_E0		; Zero Page $E0
           JSR L_FBD6   
           LDX #$03     
@@ -2615,7 +2719,7 @@ L_FD26:
           BCC L_FD26   
 L_FD32:
           JSR L_F73D   
-          JMP L_F8EA   
+          JMP MONCRLF   
 
 L_FD38:
           LDX #$03     
@@ -2626,9 +2730,9 @@ L_FD3A:
           BPL L_FD3A   
           RTS          
 
-;=================================================================
-; [$Fxxx] ADJPTR - Adjust Pointers
-;=================================================================
+;================================================================================
+; [$FD42] ADJPTR - Adjust Pointers
+;================================================================================
 ; Subtracts FC,FD from FE,FF and returns with the difference in F8,F9
 
 ADJPTR:
@@ -2642,9 +2746,9 @@ ADJPTR:
           RTS          
 
 
-;=================================================================
-; [$Fxxx] ???
-;=================================================================
+;================================================================================
+; [$FD50] ???
+;================================================================================
 
           JSR L_FD79   
           LDX #$04     
@@ -2667,9 +2771,9 @@ L_FD71:
           BPL L_FD71   
           RTS          
 
-;=================================================================
+;================================================================================
 ; [$FD79] ADJUST POINTERS 2
-;=================================================================
+;================================================================================
 
 L_FD79:
           SEC          
@@ -2681,40 +2785,26 @@ L_FD79:
           STA ZP_F9		; Zero Page $F9
           RTS          
 
-;=================================================================
-; [$FD87] TABLE
-;=================================================================
+;================================================================================
+; [$FD87] Filler
+;================================================================================
 
-L_FD87:
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA				;filler
+	 !FILL $FE00-*,$AA	; Fill with $AA (79 bytes)
  
 
-;=================================================================
+;================================================================================
 ; [$FE00] POLLED KEYBOARD INPUT ROUTINE
-;=================================================================
+;================================================================================
 ; This directly interfaces to the keyboard matrix, scans the ROWs
 ; and reads the COLUMNs to determine which keys are pressed and
 ; translates them into ASCII to be used by the rest of the system.
 
+* = $FE00
+
 GETKEY    LDX #$28     
           TXS          
           CLD          
-          JSR CLS      
+          JSR CLS		; Clear the screen      
 L_FE07:
           LDA #$00     
           STA ZP_FC		; Zero Page $FC
@@ -2789,9 +2879,9 @@ L_FE86:
           BEQ L_FE4E   
           JMP L_FFC2   
 
-;=================================================================
+;================================================================================
 ; [$FE8D] KEYBOARD MATRIX
-;=================================================================
+;================================================================================
 ; The keyboard is organized as an 8x8 matrix of keys. In the main
 ; matrix only 7 keys are used on each ROW.
 ; The special modifier keys (RPT,CTRL,ESC,Both SHIFTs, and ShiftLock)
@@ -2800,34 +2890,35 @@ L_FE86:
 
 KEYMATRIX
 KMATRIX
-	!TEXT "P;/ ZAQ"
-	!TEXT ",MNBVCX"
-	!TEXT "KJHGFDS"
-	!TEXT "IUYTREW"
-	!BYTE $00,$00,$0D,$0A
+	!TEXT "P;/ ZAQ"		; Row 1
+	!TEXT ",MNBVCX"		; Row 2
+	!TEXT "KJHGFDS"		; Row 3
+	!TEXT "IUYTREW"		; Row 4
+	!BYTE $00,$00,$0D,$0A	; Row 5
 	!TEXT "OL."
-	!BYTE $00
-	!BYTE $0E		; WAS: $5F
+	!BYTE $00		; Row 6
+	!BYTE $0E		; 		WAS: $5F
 	!TEXT "-:098"
-	!TEXT "7654321"
+	!TEXT "7654321"		; Row 7
 
-;=================================================================
-; [$FEBE] TABLE
-;=================================================================
+;================================================================================
+; [$FEBE] Keyboard Token Offset Table
+;================================================================================
+; 49 bytes... keyboard translation
 
-TABLE7:
-          !BYTE $54,$B2,$13,$75,$80,$C9,$A3,$B8	;unknown
-          !BYTE $DB,$06,$2D,$C6,$CC,$97,$BB,$9A	;unknown
-          !BYTE $16,$1D,$03,$0A,$C2,$0E,$41,$A0	;unknown
-          !BYTE $79,$D5,$00,$45,$00,$00,$32,$88	;unknown
-          !BYTE $3F,$BF,$94,$00,$65,$A9,$AC,$A6	;unknown
-          !BYTE $B5,$21,$61,$6D,$7D,$26,$38,$4D	;unknown
-          !BYTE $49				;unknown
+KEYTOKEN:
+	!BYTE $54,$B2,$13,$75,$80,$C9,$A3	; Row 1
+	!BYTE $B8,$DB,$06,$2D,$C6,$CC,$97	; Row 2
+	!BYTE $BB,$9A,$16,$1D,$03,$0A,$C2	; Row 3
+	!BYTE $0E,$41,$A0,$79,$D5,$00,$45	; Row 4
+	!BYTE $00,$00,$32,$88,$3F,$BF,$94	; Row 5
+	!BYTE $00,$65,$A9,$AC,$A6,$B5,$21	; Row 6
+	!BYTE $61,$6D,$7D,$26,$38,$4D,$49	; Row 7
  
 
-;=================================================================
+;================================================================================
 ; [$FEEF] PRINTINIT - Initialize Printing
-;=================================================================
+;================================================================================
 ; Initializes a 6520 at $8800-$8803 to operate as a parallel port
 ; with handshake.
 
@@ -2843,9 +2934,9 @@ PRINTINIT:
           RTS          
 
 
-;=================================================================
-; [$xxxx] PRINTOUT
-;=================================================================
+;================================================================================
+; [$FF04] PRINTOUT - Send Character to Printer Port
+;================================================================================
 ; Writes character in .A to PIA at $8800 configured as output port.
 ; PA0-PA7 = D0-D7
 ; CA2     = DS Active LO
@@ -2879,7 +2970,7 @@ L_FF23:
 L_FF25:
           LDA NAM2,X		; Filename that was found
           BEQ L_FF32   
-          JSR L_FF69   
+          JSR CHAROUT		; Output character in accumulator   
           INX          
           CPX #$06     
           BNE L_FF25   
@@ -2904,17 +2995,18 @@ L_FF47:
           CLC          
           RTS          
 
-;=================================================================
+;================================================================================
 ; [$FF49] TABLE
-;=================================================================
+;================================================================================
+; This table doesn't seem to be referenced anywhere
 
 L_FF49:
           !BYTE $09,$08,$01,$0C,$1A,$1E,$0A,$0E ;unknown
 
 
-;=================================================================
+;================================================================================
 ; [$FF51] ???
-;=================================================================
+;================================================================================
  
 L_FF51:
           TXA          
@@ -2926,20 +3018,21 @@ L_FF51:
           PLA          
           RTS          
 
-;=================================================================
+;================================================================================
 ; [$FF5C] TABLE
-;=================================================================
+;================================================================================
 
 L_FF5C:
           !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA	;Filler
           !BYTE $AA,$AA,$AA,$AA,$AA		;Filler
  
 
-;=================================================================
-; [$FF69] ?
-;=================================================================
+;================================================================================
+; [$FF69] CHAROUT - Output a Character
+;================================================================================
+; Sends the character in A to screen, tape or ACIA
 
-L_FF69:
+CHAROUT:
           JSR L_FFEE   
 L_FF6C:
           PHA          
@@ -2947,7 +3040,7 @@ L_FF6C:
           BPL L_FF77   
           PLA          
           PHA          
-          JSR PRINTOUT 
+          JSR PRINTOUT		; Send to Parallel Printer
 L_FF77:
           BIT SCRSPD		; Scroll delay
           BPL L_FF85   
@@ -3019,25 +3112,25 @@ L_FFC7:
           LDA ACIA+1		; Relocated ACIA offset 1
           RTS          
 
-;=================================================================
-; [$xxxx] TABLE
-;=================================================================
+;================================================================================
+; [$FFD1] TABLE
+;================================================================================
 
 L_FFD1:
           !BYTE $20,$46,$F7,$4C,$F0,$F2,$C2,$C0	;unknown
           !BYTE $A8,$CE,$10,$DA,$14,$D8		;unknown
  
-;=================================================================
-; [$xxxx] TABLE
-;=================================================================
+;================================================================================
+; [$FFDF] TABLE
+;================================================================================
 
 L_FFDF:
           !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA	;Filler
           !BYTE $AA,$AA,$AA,$AA			;Filler
 
-;=================================================================
-; [$xxxx] VECTORS
-;=================================================================
+;================================================================================
+; [$FFEE] VECTORS
+;================================================================================
  
           JMP (INVEC)		; Input Vector
 L_FFEE:   JMP (OUTVEC)		; Output Vector
@@ -3045,9 +3138,9 @@ L_FFEE:   JMP (OUTVEC)		; Output Vector
           JMP (LDVEC)		; Load Vector
           JMP (SAVVEC)		; Save Vector
 
-;=================================================================
+;================================================================================
 ; [$FFFA] 6502 RESET, IRQ, and NMI Vectors
-;=================================================================
+;================================================================================
 ; This is where the CPU jumps when powered on, or an interrupt is
 ; triggered. These must be located as the last 6 bytes of the ROM
 ; so that the CPU can start properly
@@ -3058,3 +3151,4 @@ L_FFFA:   !WORD NMI		; NMI   (normally not used)
 L_FFFC:   !WORD RESET		; RESET
 L_FFFE:   !WORD IRQ		; IRQ   (normally not used) 
 
+; The End.
