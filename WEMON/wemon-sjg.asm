@@ -26,7 +26,49 @@
 ; - Control codes inside strings
 ; - Machine code monitor
 ; - Support for swapping Video modes (24/48 columns)
-
+;
+; Power On Menu:
+;
+; M........ Machine Code Monitor
+; C........ Cold Start
+; W........ Warm Start
+; U........ User Vector jump
+; D........ Disk
+;
+; Control Codes:
+;
+; CTRL-A...Home Cursor (ESC)
+; CTRL-D...Insert Line
+; CTRL-E...BASIC Extensions
+; CTRL-H...Cursor LEFT (Shift Repeat)
+; CTRL-I...Cursor RIGHT (Repeat)
+; CTRL-J...Cursor DOWN (Line Feed)
+; CTRL-L...Clear Screen (Shift ESC)
+; CTRL-N...Delete (RUBOUT)
+; CTRL-P...Toggle Print Flag
+; CTRL-Q...Toggle Quotes
+; CTRL-S...Video Swap (Superboard Series II only) POKE 296,32 or 64
+; CTRL-T...Tape On/Off
+; CTRL-X...Cursor LEFT (Shift Repeat)
+; CTRL-Z...Cursor UP (Shift Line Feed)
+;
+; Other Keys:
+;
+; CTRL-LEFT-SHIFT + LETTER... Return BASIC KEYWORD
+; CURSORing past TOP or BOTTOM scrolls the screen
+; Slow scrolling with SPACEBAR
+;
+; Machine Code Monitor:
+;
+; M xx-ssss-eeee .... Memory Search for xx from s=start to e=end
+; V ssss-eeee ....... View Memory from s=start to e=end
+; B dddd-ssss-eeee .. Block Move block s=start to e=end to d=destination
+; S ssss-eeee ....... Save machine code
+; L ................. Load to originally saved location
+; L ssss ............ Load to s=start
+; G ssss ............ Execute at s=start address
+; F xx-ssss-eeee .... Fill Block
+;
 ;=================================================================
 ; CONFIGURE MACHINE AND DISPLAY TYPE
 ;=================================================================
@@ -158,6 +200,7 @@ SKBFLAG = $0224			; FF next character returns BASIC command
 CURPSH  = $0225			; Cursor Position HI byte
 QUOFLAG = $0226			; Quotes Flag
 EDFLAG  = $0227			; Edit Flag. Get a line from the screen
+CREGFLAG= $0228			; Copy of Control Register
 USERVEC = $0229			; User Vector
 CURSYM  = $022C			; Cursor Symbol
 CURFL   = $022D			; Cursor Flash Rate/suppress
@@ -832,7 +875,7 @@ L_F33D:
 
 L_F34F:
           LDA MEM0213		; Low Mem $0213
-          JSR WRITESCRN
+          JSR WRITESCRN		; Write it to the screen
           JMP L_F30F   
 
 L_F358:
@@ -1599,6 +1642,8 @@ L_F7C7:   !TEXT "LIST",$00              ;List message
 ;================================================================================
 ; [$F7CC] Check for valid HEX digit
 ;================================================================================
+; Converts HEX character in .A to HEX digit.
+; Returns with Hex character in .A or $80 if non-HEX.
 
 HEXCHECK:
           CMP #$30     
@@ -1622,6 +1667,7 @@ L_F7E2:
 ;================================================================================
 ; [$F7E5] Monitor Print
 ;================================================================================
+; Prints out in ASCII the contents of FD,FC,FA as FD,FC space space FA
 
 MONPRINT:
           LDX #$03     
@@ -1636,6 +1682,11 @@ L_F7F2:
           BPL L_F7E7   
           RTS          
 
+;================================================================================
+; [$Fxxx] NEXT DIG
+;================================================================================
+; Prints out HEX, a byte pointed to by X relative to FA.
+
 NXTDIG:
           LDA ZP_FA,X		; Zero Page $FA
           LSR          
@@ -1645,11 +1696,23 @@ NXTDIG:
           JSR HEXIT    
           LDA ZP_FA,X		; Zero Page $FA
           JMP HEXIT    
+
+;================================================================================
+; [$Fxxx] CRLF
+;================================================================================
+; Executes a Carriage Return followed by a Line Feed
+
 CRLF:
           LDA #$0D     
           JSR L_FF69   
           LDA #$0A     
           JMP L_FF69   
+
+;================================================================================
+; [$Fxxx] SPC2 and SPC1
+;================================================================================
+; Prints 2 spaces, or 1 space.
+
 SPC2:
           LDA #$20     
           JSR L_FF69   
@@ -1662,7 +1725,9 @@ L_F815:
 ;================================================================================
 ; [$F818] HEXIT
 ;================================================================================
-
+; Converts and ASCII character in the range 30-39,41-46 to a single HEX character
+; and prints it.
+ 
 HEXIT:
           AND #$0F     
           ORA #$30     
@@ -1671,7 +1736,14 @@ HEXIT:
           CLC          
           ADC #$07     
 L_F823:
-          BNE L_F815   
+          BNE L_F815
+
+;================================================================================
+; [$Fxxx] ROTATE CHARACTER
+;================================================================================
+; Rotates the lower nibble (4 LSB's) of .A and the two adjacent bytes pointed to
+; by X, relative to FA, left by 4 positions. X and Y are corrupted.
+   
 ROTCHR:
           LDY #$04     
           ASL          
@@ -1689,6 +1761,8 @@ L_F82B:
 ;================================================================================
 ; [$Fxxx] MINPUT
 ;================================================================================
+; Get Monitor input either from the keyboard if MC Load Flag ($E0) is clear, or
+; from ACIA if $E0 is $FF.
 
 MINPUT:
           LDA ZP_E0		; Zero Page $E0
@@ -1696,6 +1770,13 @@ MINPUT:
           JMP L_FFC2   
 L_F83B:
           JMP KBRD     
+
+;================================================================================
+; [$Fxxx] FCHAR
+;================================================================================
+; Tests the keyboard for SPACEBAR down.
+; Returns with X=0 if not down, or Z=0 if down.
+
 FCHAR:
           LDA #$FD     
           STA KEYBD		; Keyboard Port
@@ -1707,6 +1788,7 @@ FCHAR:
 ;================================================================================
 ; [$F849] NMI Entry Point
 ;================================================================================
+; Machine Code Monitor entry point
 
 IRQ:
 MONBRK:
@@ -1786,7 +1868,7 @@ L_F8C2:
           JMP L_FA5F   
 ;
 L_F8C5:
-          JSR CRLF     
+          JSR CRLF     		; Print a <CR><LF>     
           JMP L_FE07   
 ;
 L_F8CB:
@@ -1813,7 +1895,7 @@ L_F8E7:
           JSR USERVEC		; User Vector
 ;
 L_F8EA:
-          JSR CRLF     
+          JSR CRLF     		; Print a <CR><LF>     
           JMP L_F883   
 ;
 L_F8F0:
@@ -1869,14 +1951,13 @@ L_F934:
           DEY          
           BPL L_F934   
           BMI L_F901   
-;
 L_F93E:
           STY $EB      
-;
 L_F940:
           LDA ZP_E9		; Zero Page $E9
-          JSR HEXCHECK 
+          JSR HEXCHECK		; Is it 0 to 0 or A to F?  
           BMI L_F905   
+ 
           PHA          
           LDA ZP_E9		; Zero Page $E9
           JSR L_FF69   
@@ -1896,11 +1977,15 @@ L_F956:
           STA REGMAP,X		; Register map
           JMP L_F901   
 
+;=================================================================
+; [$Fxxx] PUT REGISTER
+;=================================================================
+; Writes the contents of the register map across the top of the screen
+
 PUTREG:
           LDY #$0C		; Original ROM ##########################
 ;         LDY #$8C		; Alternate ROM #########################
           LDX #$00     
-
 L_F96D:
           LDA TABLE4,X 
           BEQ L_F979   
@@ -1908,17 +1993,14 @@ L_F96D:
           INY          
           INX          
           BNE L_F96D   
-
 L_F979:
           LDX #$00     
-
 L_F97B:
           LDY TABLE3,X 
           BEQ L_F986   
           JSR L_F987   
           INX          
           BNE L_F97B   
-
 L_F986:
           RTS          
 
@@ -1942,7 +2024,6 @@ L_F999:
           BMI L_F9A4   
           CLC          
           ADC #$07     
-
 L_F9A4:
           STA SCREEN,Y		; Video Character RAM
           RTS          
@@ -1959,19 +2040,23 @@ TABLE4:
 ; [$F9CD] ??? Table
 ;=================================================================
 
-TABLE3:
+TABLE3:	;        O    Q  W   ]   $   *   0 ????????????????
           !TEXT $0F,$11,$17,$1D,$24,$2A,$30,$00 ; Original ROM ###################
 ;         !TEXT $8F,$91,$97,$9D,$A4,$AA,$B0,$00	; Alternate ROM ##################
  
 
 ;=================================================================
-; [$F9D5] Get Parameter
+; [$F9D5] GETPAR - Get Parameter
 ;=================================================================
+; Gets up to 3 16-bit parameters into
+;    FA,FB,LSB,MSB,P1
+;    FC,FF,LSB,MSB,P2
+;    FE,FF,LSB,MSB,P3
+; On return $E1 contains the parameter count.
 
 GETPAR:
           LDX #$05     
           LDA #$00     
-
 L_F9D9:
           STA ZP_FA,X		; Zero Page $FA
           DEX          
@@ -1990,7 +2075,7 @@ L_F9F1:
           CMP #$2D     
           BEQ L_FA0A   
           STA ZP_E4		; Zero Page $E4
-          JSR HEXCHECK 
+          JSR HEXCHECK		; Is it 0 to 0 or A to F?  
           BMI L_F9EC   
           PHA          
           LDA ZP_E4		; Zero Page $E4
@@ -2026,7 +2111,7 @@ L_FA21:
 L_FA30:
           LDX #$07     
           STX ZP_E4		; Zero Page $E4
-          JSR CRLF     
+          JSR CRLF     		; Print a <CR><LF>     
           LDX #$03     
           JSR NXTDIG   
           DEX          
@@ -2047,7 +2132,7 @@ L_FA43:
 L_FA5C:
           JMP L_F8EA   
 L_FA5F:
-          JSR CRLF     
+          JSR CRLF     		; Print a <CR><LF>     
           LDX #$00     
           STX ZP_DE		; Zero Page $DE
           STX ZP_DF		; Zero Page $DF
@@ -2057,7 +2142,7 @@ L_FA68:
           CMP (ZP_FC),Y		; Zero Page $FC
           BNE L_FA87   
           JSR MONPRINT 
-          JSR CRLF     
+          JSR CRLF     		; Print a <CR><LF>     
           SED          
           CLC          
           LDA ZP_00DE		; Zero Page $DE ################## Original did NOT use ZP addressing!
@@ -2208,6 +2293,12 @@ L_FB73:
           JSR TAPOUT   
           JSR L_FBC4   
           BNE L_FB5E   
+
+;================================================================================
+; [$Fxxx] DELAY5S
+;================================================================================
+; Delays approx 5 seconds. Corrupts A,Y,X
+
 DELAY5S:
           LDA #$14     
           STA $DD      
@@ -2220,7 +2311,7 @@ L_FB7F:
 
 L_FB89:
           JSR GETNAM   
-L_FB8B:
+L_FB8B:				; Incorrect Targe of jump to middle of above ######
 L_FB8C:
           JSR L_FBD6   
           LDX ZP_E2		; Zero Page $E2
@@ -2290,7 +2381,7 @@ L_FBF8:
           LDX #$25     
           JSR MSGOUT   
           STA ZP_E0		; Zero Page $E0
-          JSR CRLF     
+          JSR CRLF     		; Print a <CR><LF>     
           RTS          
 
 L_FC03:
@@ -2322,6 +2413,9 @@ L_FC1F:
 ;================================================================================
 ; [$FC2A] Compare Name
 ;================================================================================
+; Compares two 6-character strings in NAM1 and NAM2.
+; Returns carry clear if equal, or carry set if not equal.
+; If one of the charactes in NAM1 is a "*" then the test terminates and carry clear
 
 COMPNAME:
           LDX #$00     
@@ -2343,8 +2437,9 @@ L_FC3D:
           RTS          
 
 ;================================================================================
-; [$FC3F] GET NAME
+; [$FC3F] GETNAM1 - Get Name 1
 ;================================================================================
+; Reads 6 characters from tape and stores in NAM2
 
 GETNAM1:
           LDX #$00     
@@ -2355,6 +2450,10 @@ L_FC41:
           CPX #$06     
           BCC L_FC41   
           RTS          
+
+;=================================================================
+; [$FC4D] ???
+;=================================================================
 
 L_FC4D:
           JSR L_FC8B   
@@ -2380,6 +2479,11 @@ L_FC70:
           STX ZP_E2		; Zero Page $E2
           RTS          
 
+;=================================================================
+; [$FC73] PUTNAM - Put Name
+;=================================================================
+; Puts contents of NAM2 out to tape.
+
 PUTNAM:
           LDX #$2F     
           JSR MSGOUT   
@@ -2391,8 +2495,9 @@ L_FC79:
           INX          
           CPX #$06     
           BCC L_FC79   
-          JSR CRLF     
+          JSR CRLF     		; Print a <CR><LF>     
           RTS          
+
 L_FC8B:
           LDX #$0B     
           LDA #$00     
@@ -2401,6 +2506,15 @@ L_FC8F:
           DEX          
           BPL L_FC8F   
           RTS          
+
+
+;=================================================================
+; [$Fxxx] GETNAM - Get Name
+;=================================================================
+; Gets 6 characters from keyboard and puts in NAM1.
+; On return $E2=Number of characters upto but not including RETURN.
+; Zeros NAM1 and NAM2 first. Only accept characters $30 to $5A.
+
 GETNAM:
           JSR L_FC8B   
           TAX          
@@ -2419,12 +2533,23 @@ L_FCAB:
           LDA #$61     
           STA ZP_13		; Zero Page $13
           RTS          
+
+
+;=================================================================
+; [$FCB2] ???
+;=================================================================
+
 L_FCB2:
           JSR L_F732   
           JSR DELAY5S  
           JSR L_FC03   
           JSR PUTNAM   
           RTS          
+
+;=================================================================
+; [$FCBF] ???
+;=================================================================
+
 L_FCBF:
           JSR L_FC4D   
           JSR SPC1     
@@ -2501,6 +2626,11 @@ L_FD3A:
           BPL L_FD3A   
           RTS          
 
+;=================================================================
+; [$Fxxx] ADJPTR - Adjust Pointers
+;=================================================================
+; Subtracts FC,FD from FE,FF and returns with the difference in F8,F9
+
 ADJPTR:
           SEC          
           LDA ZP_FE		; Zero Page $FE
@@ -2510,6 +2640,11 @@ ADJPTR:
           SBC ZP_FD		; Zero Page $FD
           STA ZP_F9		; Zero Page $F9
           RTS          
+
+
+;=================================================================
+; [$Fxxx] ???
+;=================================================================
 
           JSR L_FD79   
           LDX #$04     
@@ -2531,6 +2666,10 @@ L_FD71:
           DEX          
           BPL L_FD71   
           RTS          
+
+;=================================================================
+; [$FD79] ADJUST POINTERS 2
+;=================================================================
 
 L_FD79:
           SEC          
@@ -2562,14 +2701,17 @@ L_FD87:
           !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
           !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
           !BYTE $AA,$AA,$AA,$AA,$AA,$AA,$AA,$AA ;filler
-          !BYTE $AA    ;filler
+          !BYTE $AA				;filler
  
 
-;================================================================================
-; [$FE00] Polled Keyboard Entry Point
-;================================================================================
+;=================================================================
+; [$FE00] POLLED KEYBOARD INPUT ROUTINE
+;=================================================================
+; This directly interfaces to the keyboard matrix, scans the ROWs
+; and reads the COLUMNs to determine which keys are pressed and
+; translates them into ASCII to be used by the rest of the system.
 
-          LDX #$28     
+GETKEY    LDX #$28     
           TXS          
           CLD          
           JSR CLS      
@@ -2581,43 +2723,45 @@ L_FE07:
           BEQ L_FE3E   
 L_FE10:
           JSR MINPUT   
-          AND #$7F     
-          CMP #$2F     
+          AND #$7F     		; Strip off high bit
+          CMP #$2F		; Is it "/"?
           BEQ L_FE4E   
-          CMP #$47     
+          CMP #$47		; Is it "G"?
           BEQ L_FE4B   
-          CMP #$4C     
+          CMP #$4C		; Is it "L"?     
           BEQ L_FE86   
-          CMP #$58     
-          BNE L_FE2F   
+          CMP #$58		; Is it "X"?     
+          BNE L_FE2F
+   
           LDA #$FE     
           PHA          
           LDA #$25     
           PHA          
           PHP          
           JMP MONBRK   
+
 L_FE2F:
-          JSR HEXCHECK 
+          JSR HEXCHECK		; Is it 0 to 0 or A to F? 
           BMI L_FE10   
           LDX #$02     
           JSR ROTCHR   
           LDA #$1A     
-          JSR WRITESCRN
+          JSR WRITESCRN		; Write it to the screen
 ;
 L_FE3E:
           LDA (ZP_FC),Y		; Zero Page $FC
           STA ZP_FA		; Zero Page $FA
           JSR MONPRINT 
-          JSR CRLF     
+          JSR CRLF     		; Print a <CR><LF>     
           JMP L_FE10   
 L_FE4B:
           JMP (ZP_FC)		; Zero Page $FC
 L_FE4E:
           JSR MINPUT   
-          AND #$7F     
-          CMP #$2E     
+          AND #$7F		; Strip off high bit     
+          CMP #$2E		; Is it "."?     
           BEQ L_FE10   
-          CMP #$0D     
+          CMP #$0D		; Is it <CR>?
           BNE L_FE6A   
           INC ZP_FC		; Zero Page $FC
           BNE L_FE61   
@@ -2628,17 +2772,17 @@ L_FE61:
           STA ZP_FA		; Zero Page $FA
           JMP L_FE7D   
 L_FE6A:
-          JSR HEXCHECK 
+          JSR HEXCHECK		; Is it 0 to 0 or A to F?  
           BMI L_FE4E   
           LDX #$00     
           JSR ROTCHR   
           LDA ZP_FA		; Zero Page $FA
           STA (ZP_FC),Y		; Zero Page $FC
           LDA #$1A     
-          JSR WRITESCRN
+          JSR WRITESCRN		; Write it to the screen
 L_FE7D:
           JSR MONPRINT 
-          JSR CRLF     
+          JSR CRLF     		; Print a <CR><LF>
           JMP L_FE4E   
 L_FE86:
           STA ZP_E0		; Zero Page $E0
@@ -2682,8 +2826,10 @@ TABLE7:
  
 
 ;=================================================================
-; [$FEEF] INITIALIZE PRINTING
+; [$FEEF] PRINTINIT - Initialize Printing
 ;=================================================================
+; Initializes a 6520 at $8800-$8803 to operate as a parallel port
+; with handshake.
 
 PRINTINIT:
           LDA #$2A     
@@ -2700,6 +2846,12 @@ PRINTINIT:
 ;=================================================================
 ; [$xxxx] PRINTOUT
 ;=================================================================
+; Writes character in .A to PIA at $8800 configured as output port.
+; PA0-PA7 = D0-D7
+; CA2     = DS Active LO
+; RBQ     - off line/empty  Active HI
+; PB1     - ACK
+; PB6     - Busy Active HI
 
 PRINTOUT:
           PHA          
