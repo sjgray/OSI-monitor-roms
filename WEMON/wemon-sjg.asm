@@ -33,7 +33,7 @@
 ; C........ Cold Start
 ; W........ Warm Start
 ; U........ User Vector jump
-; D........ Disk
+; D........ Disk (requires additional ROM firmware)
 ;
 ; Control Codes:
 ;
@@ -1744,13 +1744,13 @@ VECTABLE:
 ; terminated with a $00.
 
 MSGOUT:
-          LDA BANNER,X 
-L_F785:
-          BEQ L_F78D   
+          LDA BANNER,X 		; Get a character from string
+          BEQ MSGDONE		; Is it zero? Yes, we're done
           JSR CHAROUT		; Output character in accumulator   
-          INX          
-          BNE MSGOUT   
-L_F78D:   RTS          
+          INX			; Next position
+          BNE MSGOUT		; Loop back for more   
+MSGDONE:
+          RTS          
 
 
 ;================================================================================
@@ -2797,17 +2797,17 @@ ADJPTR:
 
           JSR L_FD79   
           LDX #$04     
-          JSR L_FB8C		; WAS: L_FB8B (MIDDLE OF INSTRUCTION) #####################
+          JSR $FB8B		; WAS: L_FB8B (MIDDLE OF INSTRUCTION) #####################
           LDX #$01     
           JSR L_FD71   
 L_FD5D:
-          LDY #$00     
+          LDY #$00		; Zero out
           JSR L_FFC7   
           STA (ZP_FC),Y		; Zero Page $FC
           JSR L_FF33   
           BCC L_FD5D   
-          JSR L_F785		; WAS: L_F784 (MIDDLE OF INSTRUCTION) #####################
-          JMP L_F932		; WAS: L_F931 (MIDDLE OF INSTRUCTION) #####################
+          JSR $F784		; WAS: L_F784 (MIDDLE OF INSTRUCTION) #####################
+          JMP $F931		; WAS: L_F931 (MIDDLE OF INSTRUCTION) #####################
           LDX #$03     
 L_FD71:
           LDA ZP_FA,X		; Zero Page $FA
