@@ -2512,7 +2512,7 @@ L_FBD6:
 L_FBE1:
           JSR L_FC13   
           JSR GETNAM1  
-          LDX #$1C		; Offset of message "FOUND"   
+          LDX #(MSG2-BANNER)	; $1C - Offset of message "FOUND"   
           JSR MSGOUT		; Print the message   
 
           JSR L_FF23   
@@ -2521,7 +2521,7 @@ L_FBE1:
           JSR COMPNAME 
           BCS L_FBE1   
 L_FBF8:
-          LDX #$25		; Offset of message "LOADING" 
+          LDX #(MSG3-BANNER)	; $25 - Offset of message "LOADING" 
           JSR MSGOUT		; Print the message
 
           STA MCLOADFLG		; Zero Page $E0
@@ -2634,7 +2634,7 @@ L_FC70:
 ; Puts contents of NAM2 out to tape.
 
 PUTNAM:
-          LDX #$2F		; Offset of message "SAVING"     
+          LDX #(MSG4-BANNER)	; $2F - Offset of message "SAVING"     
           JSR MSGOUT   		; Print the message
           TAX          
 L_FC79:
