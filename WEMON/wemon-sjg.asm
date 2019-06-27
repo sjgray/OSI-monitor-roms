@@ -132,12 +132,13 @@ ZP_7B = $7B			; Zero Page $7B
 ZP_7C = $7C			; Zero Page $7C
 ZP_87 = $87			; Zero Page $87
 ZP_88 = $88			; Zero Page $88
+ZP_8C = $8C			; Zero Page $8C BASIC ERROR related
 ZP_C4 = $C4			; Zero Page $C4
 ZP_C5 = $C5			; Zero Page $C5
 ZP_D6 = $D6			; Zero Page $D6
 ZP_DE = $DE			; Zero Page $DE
 ZP_00DE = $00DE			; Zero Page $DE ################ 2 bytes
-ZP_DF = $DF			; Zero Page $DF
+ZP_DF = $DF			; Zero Page $DF Index to Input buffer????????
 MCLOADFLG = $E0			; Zero Page $E0 MC Load Flag
 ZP_E1 = $E1			; Zero Page $E1
 ZP_E2 = $E2			; Zero Page $E2
@@ -234,7 +235,7 @@ TPFlag  = $024F			; Tape on/off Flag
 
 
 ;################################################################################
-; [$F800] Start of Monitor ROM
+; [$F000] Start of Monitor ROM
 ;################################################################################
 ; WEMON is a 4K Monitor ROM with start address of $F000.
 
@@ -407,6 +408,7 @@ SETCUR:
 ;================================================================================
 ; Output Vector pointa here
 
+OUTVECROM:
 WRITESCRN:
           STA TEMCHR		; Temporary character store
           PHA          
@@ -879,41 +881,44 @@ L_F2E9:
           RTS          
 
 ;================================================================================
-; [$F2F0] ???
+; [$F2F0] INVECN - Normal INVEC Handler
 ;================================================================================
 
-L_F2F0:
-          LDA ERRORFL		; FF = Run error
-          BEQ L_F30B   
-          BMI L_F2FF   
-          LDA #$00     
+INVECN:
+          LDA ERRORFL		; Is there a RUN error? (FF)
+          BEQ RUNERR		; Yes FF, skip ahead
+          BMI L_F2FF		;
+
+          LDA #$00		; Zero
           STA ERRORFL		; FF = Run error
-          JMP BROMWARM
+          JMP BROMWARM		; Jump to BASIC Warmstart
 
 L_F2FF:
-          LDA #$00     
-          CMP $8C      
-          BNE L_F308   
-          JMP PRERRL   
+          LDA #$00		; Zero
+          CMP ZP_8C		; BASIC STORAGE for ERROR?
+          BNE L_F308		;   
+          JMP PRERRL		; Print the ERROR LINE   
 
+;-------- Run ERROR FF
 L_F308:
           STA ERRORFL		; FF = Run error
 
-L_F30B:
+;-------- RUN ERROR
+RUNERR:
           TYA          
           PHA          
           TXA          
           PHA          
 L_F30F:
           JSR KBRD		; Get a key from Keyboard     
-          CMP #$0D     
+          CMP #$0D		; Is it <CR>?
           BEQ L_F32D   
-          CMP #$0E     
+          CMP #$0E		; Is it CTRL-N? (DELETE)
           BEQ L_F323   
           BIT QUOFLAG		; Quotes Flag
           BMI L_F33D   
-          CMP #$20     
-          BCS L_F33D   
+          CMP #$20		; Is it <SPACE>?     
+          BCS L_F33D		; Higher, skip ahead
 L_F323:
           BIT EDFLAG		; Edit Flag. Get a line from the screen
           BMI L_F34F   
@@ -922,17 +927,19 @@ L_F323:
 L_F32D:
           JSR SETCUR   
           LDA CURCHR		; Character under cursor
-          STA (SCRNLO),Y		; Zero Page $F6
+          STA (SCRNLO),Y	; Zero Page $F6
           BIT EDFLAG		; Edit Flag. Get a line from the screen
           BPL L_F358   
           JMP L_F57D   
+
+;-------- Handle characters > SPACE
 L_F33D:
           PLA          
           PHA          
           TAX          
           LDA MEM0213		; Low Mem $0213
-          STA INBUF,X		; Zero Page $13
-          STX ZP_DF		; Zero Page $DF
+          STA INBUF,X		; Sace it to the input buffer. Zero Page $13
+          STX ZP_DF		; Save the INDEX to the input buffer. Zero Page $DF
           INX          
           PLA          
           TXA          
@@ -960,7 +967,7 @@ L_F35C:
           INX          
           TXS          
           LDX ZP_F8		; Zero Page $F8
-          JMP BROMA866
+          JMP BROMA866		; Jump to BASIC routine ??????????????
 
 
 ;================================================================================
@@ -1731,11 +1738,11 @@ L_F773:
 ;=================================================================
 
 VECTABLE:
-          !BYTE $BA,$FF		; $0218 = $FFBA - Input Vector
-	  !BYTE $D3,$F0		; $021A = $F0D3 - Output Vector
-	  !BYTE $9A,$FF		; $021C	= $FF9A - Control-C Vector
-	  !BYTE $8B,$FF		; $021E = $FF8B - Load Vector
-          !BYTE $96,$FF		; $022E = $FF96 - Save Vector
+          !BYTE <INVECROM,>INVECROM	; $0218 = $FFBA - Input Vector
+	  !BYTE <OUTVECROM,>OUTVECROM	; $021A = $F0D3 - Output Vector
+	  !BYTE <CCVECROM,>CCVECROM	; $021C	= $FF9A - Control-C Vector
+	  !BYTE <LDVECROM,>LDVECROM	; $021E = $FF8B - Load Vector
+          !BYTE <SAVVECROM,>SAVVECROM	; $022E = $FF96 - Save Vector
  
 ;================================================================================
 ; [$F782] MSGOUT - Put Message on Screen
@@ -2451,7 +2458,7 @@ L_FB7F:
 ; [$FB89] ???
 ;================================================================================
 
-L_FB89:
+LOADIT:
           JSR GETNAM   
 L_FB8B:				; Incorrect Target of jump to middle of above ######
 L_FB8C:
@@ -3081,58 +3088,73 @@ CHAROUT:
           JSR L_FFEE   
 CHAROUT2:
           PHA          
-          BIT PRFLAG		; Print on/off Flag
-          BPL L_FF77   
+          BIT PRFLAG		; Is Parallel Printer Output ON?
+          BPL NOPRNTR		; No, skip ahead
           PLA          
           PHA          
           JSR PRINTOUT		; Send to Parallel Printer
-L_FF77:
+NOPRNTR:
           BIT SCRSPD		; Scroll delay?
-          BPL L_FF85		; No, skip ahead   
+          BPL NODELAY		; No, skip ahead   
           PLA          
           PHA          
           JSR TAPOUT		; Send out to Tape
           CMP #$0D		; Is it <CR>?     
           BEQ NULL10		; Send out 10 NULLS to TAPE
-L_FF85:
+NODELAY:
           PLA          
           RTS          
 
+
 ;================================================================================
-; [$FF87] ?
+; [$FF87] Filler
 ;================================================================================
 
-L_FF87:
-          TAX          
-          TAX          
-          TAX          
-          TAX          
-
-L_FF8B:
-          JMP L_FB89   
-          TAX          
-          TAX          
-          TAX          
-          TAX          
           TAX          
           TAX          
           TAX          
           TAX          
 
-;================================================================================
-; [$FF96] SAVEVEC - Save Vector
-;================================================================================
-; Save Vector point here
-
-L_FF96:
-          JMP SAVEIT
 
 ;================================================================================
-; [$FF99] CTRLC - Handle Control-C
+; [$FF8B] LDVECROM - Load Vector Handler
+;================================================================================
+
+LDVECROM:
+          JMP LOADIT		; Do the Load
+
+
+;================================================================================
+; [$FF8E] Filler
 ;================================================================================
    
-L_FF99    TAX          
-          LDA CCFLAG		; Get Control-C Flag
+          TAX          
+          TAX          
+          TAX          
+          TAX          
+          TAX          
+          TAX          
+          TAX          
+          TAX          
+
+
+;================================================================================
+; [$FF96] SAVVECROM - Save Vector Handler
+;================================================================================
+; Save Vector points here
+
+SAVVECROM:
+          JMP SAVEIT		; Jump to real Save Routine
+
+L_FF99    TAX			; Filler
+
+   
+;================================================================================
+; [$FF9A] CCVECROM - CTRL-C Handler
+;================================================================================
+
+CCVECROM
+CTRLC	  LDA CCFLAG		; Get Control-C Flag
           BNE CCNONE		; Is it enabled? No, skip ahead
 
           LDA #$FE		; Keyboard ROW#     
@@ -3152,11 +3174,16 @@ CCNONE:
 ;------------------------------ 
 
 L_FFB9:
-          !BYTE $2C		; Unknown
+          !BYTE $2C		; Unknown- probably to confuse disassemblers
+
+;================================================================================
+; [$FFBA] INVECROM - Input Vector Handler
+;================================================================================
  
-          BIT LDFLAG		; Load Flag
-          BMI L_FFC2   
-          JMP L_F2F0   
+INVECROM:
+          BIT LDFLAG		; Is Load Flag set
+          BMI L_FFC2		; Yes, skip ahead
+          JMP INVECN		; No, do normal output
 L_FFC2:
           JSR FCHAR    
           BEQ L_FFD1   
@@ -3168,7 +3195,7 @@ L_FFC7:
           RTS          
 L_FFD1:
           JSR FINTAPE		; Turn off tape
-          JMP L_F2F0
+          JMP INVECN
 
 ;================================================================================
 ; [$FFD1] TABLE
