@@ -155,7 +155,7 @@ BROMBCF7 = BASIC + $1CF7	; ?
 ; Symbols for Zero Page Storage
 ;=================================================================
 
-ZP0D	= $0D			; $0D - Number of NULL's
+;NULLS	= $0D			; $0D - Number of NULL's
 CHRCOUNT= $0E			; $0E - Terminal Character Count
 TERMWID	= $0F			; $0F - BASIC Terminal Width (not used)
 ;ZP10	= $10			; $10 - BASIC Terminal Width columns
