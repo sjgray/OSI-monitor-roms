@@ -1,0 +1,29 @@
+C1S - for the C1P only, this ROM adds full screen edit functions (insert, delete, change characters in a basic line), Software selectable scroll windows, two instant screen clears (scroll window only and full screen, software choice of OSI or standard keyboard format, Bell support, 600 Baud cassette support, and a few other features. It plugs in in place of the OSI ROM.
+NOTE: this ROM also supports video conversions for 24, 32, 48 or 64 characters per line. Replaces video swap tape on C1P model 2.
+(Sound output via speaker connected to RTS line of ACIA)
+Aardvark C1S monitor ROM uses memory locations $0222 through $022F for cursor positioning and subroutines
+
+E on line by itself to start editor
+CTRL-U move up
+CTRL-J move down
+CTRL-L move left
+CTRL-R move right
+
+CTRL-A erase to end of screen
+CTRL-B move to start of line
+CTRL-C clear screen
+CTRL-D delete character, move line/screen left 1
+CTRL-E erase to end of line
+CTRL-I insert space, move line/screen right 1
+
+CTRL-M same as RETURN
+CTRL-Y clear screen, set 48x16 mode
+CTRL-X clear screen, set 24x24 mode (end editor mode)
+CTRL-Z clear & home
+<RETURN> enter line into memory
+ESC  end editor mode, clear screen
+Rub-Out delete last character
+Shift-O delete last character
+
+
+ 

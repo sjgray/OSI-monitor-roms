@@ -1,6 +1,8 @@
 Ohio Scientific Monitor ROMs Project
 ====================================
 
+Last update: Dec 29, 2022
+
 This is a repository of OSI Monitor ROMs.
 The goal is to gather known monitor roms, disassemble each back to readable source,
 with meaningful symbols, label names, and descriptive comments, and to be
@@ -19,6 +21,7 @@ Included Monitors
 * BAER MON - Queued
 * PCMON2   - Queued
 * DABUG    - Queued
+* Aardvark - Queued
 
 MONITORS
 ========
@@ -37,7 +40,7 @@ WEMON - Watford Electronics Monitor
 * /Docs/ contains the Manual and a review
 * /Binaries/ contains original binaries for various systems.
 * /Disassembly/ folder is my own disassembly of the binary using CBM-Transfer.
-  The included ASM-PROJ file will enable you to generate various output format.
+  The included ASM-PROJ file will enable you to generate various output formats.
 * /Experimental/ is a special "split" version.
 
 
@@ -67,8 +70,17 @@ DABUG - Unknown Monitor for C1
 * Binary Only
 
 
-BASIC
-=====
+Aardvark - Monitor for C1 and Superboard II. The version for C4 has not been found yet
+--------
+* Binary for C1
+* Binary for Superboard II
+* Basic Disassemblies for both
+
+
+###########
+## BASIC ##
+###########
+
 * UK-101 BASIC ROMs can be found in the /BASIC folder.
 * Needed for certain Monitor ROMs
 

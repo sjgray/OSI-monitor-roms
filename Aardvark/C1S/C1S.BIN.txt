@@ -1,0 +1,24 @@
+;earlier version of C1S 
+C1S.BIN - for the C1P only, this ROM adds full screen edit functions (insert, delete, change characters in a basic line), Software selectable scroll windows, instant screen clear , Bell support, and a few other features. It plugs in in place of the OSI ROM.
+
+(Sound output via speaker connected to RTS line of ACIA)
+Aardvark C1S monitor ROM uses memory locations $0222 through $022F for cursor positioning and subroutines
+
+E on line by itself to start editor
+CTRL-U move up
+CTRL-J move down
+CTRL-D move down
+CTRL-L move left
+CTRL-R move right
+
+CTRL-A erase to end of screen
+CTRL-B move to start of line
+CTRL-C clear screen
+CTRL-E erase to end of line
+CTRL-I insert space, move line/screen right 1
+
+CTRL-M ?same as RETURN
+
+<RETURN> enter line into memory
+ESC  end editor mode, clear screen
+Shift-O delete last character
