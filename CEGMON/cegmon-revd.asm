@@ -98,7 +98,7 @@ CCDONE	JMP STORKEY		; We didnt find our custom key. Pass it on. We're done!
 
 
 ;*****************************************************************
-; CTRL-W - Set 24/32 Column Mode (WIDE Characters)
+; CTRL-X - Toggle Narrow/Wide Mode
 ;*****************************************************************
 ; Removed due to lack of space
 ;
