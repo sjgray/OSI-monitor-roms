@@ -22,31 +22,33 @@
 ; Edit the following for your desired features/options:
 
 MACHINE = 0	; 0 to 2      - Determines Machine hardware config
-DISPLAY = 0	; 0 to 4      - Determines Video Display Parameters
+DISPLAY = 1	; 0 to 4      - Determines Video Display Parameters (Max Size)
+DMODE   = 1     ; 0 or 1      - Default screen mode for switchable screen (C2/600D)
+		; 0=Wide, 1=Narrow (IE: 24/32 or 48/64 depending on video circuit)
 
 OPTEMACS= 0	; 0=No, 1=Yes - Enable EMACS-like Editing keys
-OPTBANNR= 5	; 0 to 5      - Banner#
+OPTBANNR= 2	; 0 to 5      - Banner#
 OPTINIT = 1	; Custom Init Code? 0=No, 1=Yes
-OPTDISK = 1	; What goes in Disk Bootstrap area?
+OPTDISK = 2	; What goes in Disk Bootstrap area?
 		; 0=Nothing
 		; 1=Disk Bootstrap	(standard CEGMON bootstrap)
 		; 2=Rev D Support Code 	(SJG)
 		; 3=Monitor ROM Menu	(SJG)
 		; 4=BASIC ROM Menu	(SJG)
 
-OPTXROM = 2	; Put additional code in External ROM @ $8000-$9FFF
+OPTXROM = 0	; Put additional code in External ROM @ $8000-$9FFF
 		; Do not set both OPTDISK and OPTXROM at the same time!
 		; 0=No
 		; 1=Reserved
 		; 2=Rev D Support (extended)
 
-OPTXJMP = 1	; Use a Jump table at the start of XROM? 0=No, 1=Yes
+OPTXJMP = 0	; Use a Jump table at the start of XROM? 0=No, 1=Yes
 
 OPTWIDTH= 1	; Patch screen width calculations
 		; 0=No  - Hard coded per DISPLAY setting
 		; 1=Yes - Use PWIDTH memory location in RAM (requires custom routine to initialize)
 
-OPTKEYS = 1	; 0=No, 1=Yes - Patch for Custom Key Handler
+OPTKEYS = 0	; 0=No, 1=Yes - Patch for Custom Key Handler
 OPT630  = 1	; 0=No, 1=Yes - Colour
 OPTRGB  = 4	; 0 to 15     - Default RGB value for Colour
 
@@ -56,7 +58,7 @@ OPTRGB  = 4	; 0 to 15     - Default RGB value for Colour
 ; This line sets the binary output filename. You can customize this
 ; for your specific configuration file.
 
-!TO "SJGMON16.bin",plain
+!TO "SJGMON17.bin",plain
 
 ;=================================================================
 ; INCLUDE MAIN CODE

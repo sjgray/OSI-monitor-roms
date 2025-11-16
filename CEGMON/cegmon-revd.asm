@@ -54,7 +54,9 @@
 
 CUSTOM
 	JSR INITMEM		; Initialize low memory
-	JSR WIN1		; Set Default Screen,Colour, Window
+!IF DMODE=0 { JSR WIN1 }	; Set WIDE   Screen,Colour, Window
+!IF DMODE=1 { JSR WIN2 }	; Set NARROW Screen,Colour, Window
+
 
 !IF OPT630=1 {
 	LDA #OPTRGB		; Default Colour
@@ -215,5 +217,5 @@ SWLOOP	LDA WINDOWS,X		; Get window parameter
 ;         SW=Screen Width,MD=SCD Mode
 ; 
 ;             WW ,TL ,TH ,BL ,BH ,SW, MD
-WINDOWS	!BYTE $17,$85,$D0,$65,$D3,$20,$00	; OFFSET 0 > 24 columns
-	!BYTE $2F,$8B,$D0,$4B,$D3,$40,$01	; OFFSET 7 > 48 columns
+WINDOWS	!BYTE $17,$85,$D0,$65,$D3,$20,$00	; WIDE:   OFFSET 0 > 24 columns
+	!BYTE $2F,$8B,$D0,$4B,$D3,$40,$01	; NARROW: OFFSET 7 > 48 columns
